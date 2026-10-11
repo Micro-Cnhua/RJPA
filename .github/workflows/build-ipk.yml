@@ -121,10 +121,10 @@ jobs:
           mkdir -p out
 
           # 架构相关的包：每个 job 各一份，文件名自带架构，不会重名
-          find artifacts -name 'ruijie_*.ipk' -exec cp -v {} out/ \;
+          find artifacts -name 'rjpa_*.ipk' -exec cp -v {} out/ \;
 
           # 架构无关的 LuCI 包：每个 job 产出的内容一样，只取一份
-          LUCI_IPK="$(find artifacts -name 'luci-app-ruijie_*.ipk' | head -n1)"
+          LUCI_IPK="$(find artifacts -name 'luci-app-rjpa_*.ipk' | head -n1)"
           if [ -n "$LUCI_IPK" ]; then
             cp -v "$LUCI_IPK" out/
           fi
