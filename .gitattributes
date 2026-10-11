@@ -1,0 +1,15 @@
+# 本项目在 Windows 上编辑、在 Linux（Ubuntu 虚拟机 / GitHub Actions）上编译。
+#
+# Windows 上 core.autocrlf=true 时，git 会把文本文件检出成 CRLF。
+# shell 脚本带 CRLF 到 Linux 上会直接报:  bad interpreter: /bin/sh^M
+#
+# 所以强制所有文本文件在仓库里和工作区都用 LF。
+# 以后如果发现工作区又变回 CRLF，执行一次即可恢复:
+#     git rm --cached -r . && git reset --hard
+* text=auto eol=lf
+
+# 二进制，不做换行转换
+*.ipk  binary
+*.apk  binary
+*.zst  binary
+*.png  binary

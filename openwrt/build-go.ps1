@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     为 OpenWrt / ImmortalWrt 交叉编译锐捷校园网认证客户端。
