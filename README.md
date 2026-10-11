@@ -86,7 +86,7 @@ SSH 登录路由器，执行这一条：
 ### 第 3 步：装上去
 
 **24.10 及更早（opkg）：**
-
+24版本前有Luci页面的可以直接通过Luci后台上传安装就不用下面命令安装
 ```sh
 # 传到路由器
 scp rjpa_1.0.1-1_aarch64_cortex-a53.ipk luci-rjpa_1.0.1-1_all.ipk root@192.168.1.1:/tmp/
@@ -101,7 +101,6 @@ opkg install ./rjpa_1.0.1-1_aarch64_cortex-a53.ipk ./luci-rjpa_1.0.1-1_all.ipk
 ```
 
 **25.12 及以后（apk）：**
-
 ```sh
 scp rjpa-1.0.1-r1.aarch64_cortex-a53.apk luci-rjpa-1.0.1-r1.apk root@192.168.1.1:/tmp/
 
