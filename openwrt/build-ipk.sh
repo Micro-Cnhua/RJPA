@@ -126,7 +126,11 @@ make package/ruijie/compile V=s
 say "编译结束"
 
 # ------------------------------------------------------------------ 5. 找产物
-IPK_FIND=(find "$SDK/bin" -type f \( -name 'ruijie_*.ipk' -o -name 'luci-app-ruijie_*.ipk' \))
+# 同时收 opkg 的 .ipk 和 apk 的 .apk：
+# 24.10 的 SDK 出 .ipk，25.12 的 SDK 出 .apk，用哪套 SDK 就出哪种。
+PKG_FIND=(find "$SDK/bin" -type f \( \
+	-name 'ruijie_*.ipk' -o -name 'luci-app-ruijie_*.ipk' -o \
+	-name 'ruijie-*.apk' -o -name 'luci-app-ruijie-*.apk' \))
 
 echo
 echo "==> 产物"
@@ -135,20 +139,28 @@ while IFS= read -r f; do
 	[ -n "$f" ] || continue
 	FOUND=1
 	echo "    $f"
-done < <("${IPK_FIND[@]}" 2>/dev/null | sort)
+done < <("${PKG_FIND[@]}" 2>/dev/null | sort)
 
 if [ "$FOUND" -eq 0 ]; then
-	echo "    没有找到 .ipk，请检查上面的编译输出。" >&2
+	echo "    没有找到 .ipk / .apk，请检查上面的编译输出。" >&2
 	exit 1
 fi
 
 say "拷回 $HERE/dist/"
 mkdir -p "$HERE/dist"
-"${IPK_FIND[@]}" -exec cp -f {} "$HERE/dist/" \; 2>/dev/null || true
+"${PKG_FIND[@]}" -exec cp -f {} "$HERE/dist/" \; 2>/dev/null || true
 ls -l "$HERE/dist" | sed 's/^/    /'
 
 echo
-echo "完成。把 dist/ 里的 .ipk 传到路由器后执行:"
+echo "完成。把 dist/ 里的包传到路由器："
+echo
+echo "  24.10 及更早（opkg / .ipk）:"
 echo "    opkg install luci-compat luci-lua-runtime   # 首次需要，Lua 版 LuCI 支持"
 echo "    opkg install ./ruijie_*.ipk ./luci-app-ruijie_*.ipk"
+echo
+echo "  25.12 及以后（apk / .apk）:"
+echo "    apk add luci-compat luci-lua-runtime"
+echo "    apk add --allow-untrusted ./ruijie-*.apk ./luci-app-ruijie-*.apk"
+echo
+echo "  装完都执行:"
 echo "    /etc/init.d/uhttpd restart"
