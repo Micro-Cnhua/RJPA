@@ -43,7 +43,8 @@ m = Map("rjpa", translate("锐捷校园网认证"),
 	translate("在路由器上自动完成校园网 eportal 认证。修改后请点击“保存并应用”，服务会立即重启。"))
 
 -- 顶部：运行状态 + 服务类型检测
-m:section(SimpleSection).template = "rjpa/status"
+-- 路径写 ruijie 而不是 rjpa: 加载路径由磁盘文件名决定，见 Makefile 的 install 段
+m:section(SimpleSection).template = "ruijie/status"
 
 
 s = m:section(TypedSection, "rjpa", translate("认证设置"))
@@ -128,6 +129,7 @@ o.rmempty = false
 
 
 -- 底部：连接日志
-m:section(SimpleSection).template = "rjpa/log"
+-- 同样: 视图路径是磁盘文件名，不是包名
+m:section(SimpleSection).template = "ruijie/log"
 
 return m
