@@ -118,6 +118,32 @@ if ! make defconfig >"$CONFIG_LOG" 2>&1; then
 fi
 say "配置完成（日志: $CONFIG_LOG）"
 
+# ------------------------------------------------------------------ 3.5 选包
+# 显式启用要打的两个包。
+#
+# OpenWrt 只构建 .config 里被选中的包，没选中的会被**静默跳过**（不报错、
+# 也不产出），见 include/package-pack.mk 里的 CONFIG_PACKAGE_$(1) 判断。
+# 我们的包不是发行版默认包，defconfig 不会自动选上，所以必须手动打开。
+#
+# 必须放在 defconfig 之后：defconfig 会重算整个 .config。
+for pkg in rjpa luci-rjpa; do
+	grep -q "^CONFIG_PACKAGE_${pkg}=y\$" .config 2>/dev/null || \
+		printf 'CONFIG_PACKAGE_%s=y\n' "$pkg" >> .config
+done
+
+say "已显式启用的包:"
+grep -E '^CONFIG_PACKAGE_(rjpa|luci-rjpa)=' .config | sed 's/^/    /'
+
+# 确认真的写进去了，否则后面会以"编不出来"的形式失败，不好排查
+for pkg in rjpa luci-rjpa; do
+	if ! grep -q "^CONFIG_PACKAGE_${pkg}=y\$" .config; then
+		echo "" >&2
+		echo "*** 启用 $pkg 失败，.config 里没有 CONFIG_PACKAGE_${pkg}=y" >&2
+		grep -n "CONFIG_PACKAGE_${pkg}" .config >&2 || echo "    （这个包在 .config 里一次都没出现）" >&2
+		exit 1
+	fi
+done
+
 # ------------------------------------------------------------------ 4. 编译
 say "开始编译 package/rjpa"
 echo "    首次编译 SDK 要先跑一遍 prepare，约 2~10 分钟；之后再编同一个包只要十几秒。"

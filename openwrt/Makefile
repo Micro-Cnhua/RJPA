@@ -135,15 +135,23 @@ define Package/luci-rjpa
   SUBMENU:=3. Applications
   TITLE:=LuCI 支持 (锐捷校园网认证 / Lua)
   PKGARCH:=all
-  # 注意: luci-compat / luci-lua-runtime 前面**不能加 +**。
+  # ⚠️ 这里**不能**写 luci-compat / luci-lua-runtime —— 加不加 + 都不行。
   #
-  #   "+" 的含义不只是"运行时要它"，还包括"在 .config 里把它选上"。
-  #   而 SDK 里没有 luci feed，这两个包不存在 —— 选不上，于是 make defconfig
-  #   会把本包一起关掉，结果就是「只编出了 rjpa，没有 LuCI 包」。
+  #   原因: SDK 里没有 luci feed，这两个包的 Kconfig 符号不存在。
+  #   只要 DEPENDS 里出现它们，CONFIG_PACKAGE_luci-rjpa 就永远无法被选中；
+  #   而 OpenWrt 只构建 .config 里被选中的包，见 25.12 的
+  #   include/package-pack.mk:
+  #       ifneq ($(CONFIG_PACKAGE_$(1))$(DEVELOPER),)
+  #         IPKGS += $(1)
+  #   于是本包被静默跳过：不报错、不产出，只在 scan 阶段留一条 WARNING。
   #
-  #   写成不带 + 的纯运行期依赖，包名照样会写进 ipk / apk 的依赖字段，
-  #   路由器上安装时 opkg / apk 依然会要求先装它们。
-  DEPENDS:=+rjpa luci-compat luci-lua-runtime
+  #   代价: 装这个包时不会自动拉取 luci-compat / luci-lua-runtime，
+  #         必须先手动装（安装说明里已写明这一步）。
+  #
+  #   想让依赖自动生效，正确做法是给 SDK 补 feeds:
+  #       ./scripts/feeds update -a && ./scripts/feeds install -a
+  #   然后就能把这两个包写回 DEPENDS。
+  DEPENDS:=+rjpa
 endef
 
 define Package/luci-rjpa/description
