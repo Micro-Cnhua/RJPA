@@ -16,9 +16,19 @@ ImmortalWrt 24.10 上，在 LuCI 里配置账号密码、并实时查看连接�
 
 ## 0. 三个前提结论（决定了整套做法）
 
-**① ImmortalWrt 24.10 用 opkg + `.ipk`，不是 apk。**
-已核对 24.10.6 的软件源：`Packages` / `Packages.gz` / `opkg_2024.10.16` / `*.ipk`。
-（apk 是 25.12 才切成默认的。）所以产出 `.ipk` 就对了。
+**① 24.10 用 opkg + `.ipk`；25.12 起换成 apk + `.apk`。**
+
+已核对两边的软件源：
+
+| 版本 | 包管理器 | 产物 |
+|---|---|---|
+| 24.10.6 | opkg | `Packages` / `opkg_2024.10.16` / `*.ipk` |
+| 25.12.2 | apk | `*.apk`（文件名形如 `包名-版本-r修订.apk`） |
+
+**同一个 SDK 出不了两种格式**（25.12 已经移除 opkg），所以要出齐两种就得跑两套 SDK。
+仓库里的 GitHub Actions 已经这么配了 —— 打一个 tag，同一个 Release 里同时有 `.ipk` 和 `.apk`。
+
+下面第 5～6 节以 24.10 的 `.ipk` 为主，涉及 `.apk` 的差异会单独标出来。
 
 **② 24.10 的 LuCI 前端已经是 ucode + JS，但 Lua 页面依然被官方支持。**
 读过 24.10 分支的源码确认：
@@ -55,9 +65,9 @@ openwrt/
 ├── Makefile                     # 包定义：ruijie + luci-app-ruijie
 ├── build-go.sh                  # 【Linux】交叉编译 Go 二进制
 ├── build-go.ps1                 # 【Windows】同上（目标命名完全一致）
-├── build-ipk.sh                 # 用 SDK 打成 .ipk
+├── build-ipk.sh                 # 用 SDK 打成 .ipk / .apk（取决于 SDK 是哪一代）
 ├── prebuilt/                    # Go 二进制产物（Makefile 按 ARCH 自动挑）
-├── dist/                        # 打好的 .ipk 输出到这里（脚本生成）
+├── dist/                        # 打好的包输出到这里（脚本生成）
 ├── files/                       # → 装进 ruijie 包（后台服务，不依赖 LuCI）
 │   ├── etc/config/ruijie        #   UCI 默认配置
 │   └── etc/init.d/ruijie        #   procd 服务脚本
@@ -229,7 +239,10 @@ cd ~/ruijie-pkg            # 或你放 openwrt 目录的地方
 ```
 
 脚本流程：把包源码同步到 `<SDK>/package/ruijie` → `make defconfig`
-→ `make package/ruijie/compile V=s` → 找出 `.ipk` 并拷到本目录 `dist/`。
+→ `make package/ruijie/compile V=s` → 找出产物并拷到本目录 `dist/`。
+
+用 **24.10.x 的 SDK** 出 `.ipk`，用 **25.12.x 的 SDK** 出 `.apk`。脚本按 SDK 实际产出
+哪种就收哪种，不用改参数。
 
 如果 `prebuilt/` 里没有当前架构需要的二进制，Makefile 会直接停下并告诉你该编哪个目标，
 **不会产出装不上的包**：
@@ -243,10 +256,24 @@ cd ~/ruijie-pkg            # 或你放 openwrt 目录的地方
 
 ### 5.3 产物
 
+用 **24.10.x 的 SDK** 时：
+
 ```
 dist/ruijie_1.0.0-1_aarch64_cortex-a53.ipk
 dist/luci-app-ruijie_1.0.0-1_all.ipk
 ```
+
+用 **25.12.x 的 SDK** 时（注意 apk 文件名里**不带架构**）：
+
+```
+dist/ruijie-1.0.0-r1.apk
+dist/luci-app-ruijie-1.0.0-r1.apk
+```
+
+> ⚠️ apk 的文件名不带架构，所以**要为多个架构各出一份时得自己补架构后缀**，
+> 否则同名会冲突。CI 里已经自动做了这件事，产物形如
+> `ruijie-1.0.0-r1.aarch64_cortex-a53.apk`。
+> 手动只编一个架构时无所谓——反正只有一份。
 
 第一次编译 SDK 里的依赖索引要几十秒，之后重编就很快了（十几秒）。
 脚本一次会把 `ruijie` 和 `luci-app-ruijie` 两个包都编出来——
@@ -263,8 +290,10 @@ dist/luci-app-ruijie_1.0.0-1_all.ipk
 从虚拟机直接 scp 过去（虚拟机要能访问到路由器）：
 
 ```sh
-scp dist/*.ipk root@192.168.1.1:/tmp/
+scp dist/* root@192.168.1.1:/tmp/
 ```
+
+### 24.10 及更早（opkg / `.ipk`）
 
 ```sh
 ssh root@192.168.1.1
@@ -281,6 +310,27 @@ opkg install ./ruijie_*.ipk ./luci-app-ruijie_*.ipk
 /etc/init.d/uhttpd restart
 rm -f /tmp/luci-indexcache*
 ```
+
+### 25.12 及以后（apk / `.apk`）
+
+```sh
+ssh root@192.168.1.1
+
+# 【关键】Lua 版 LuCI 支持，默认镜像同样没预装
+apk add luci-compat luci-lua-runtime
+
+cd /tmp
+# 本地包没有用路由器的信任密钥签名，所以要加 --allow-untrusted
+apk add --allow-untrusted ./ruijie-*.apk ./luci-app-ruijie-*.apk
+
+/etc/init.d/uhttpd restart
+rm -f /tmp/luci-indexcache*
+```
+
+> `luci-compat` / `luci-lua-runtime` 在 25.12 里**依然存在**（已核对 `openwrt-25.12`
+> 和 ImmortalWrt 对应分支的源码），所以 Lua 界面不用重写。
+>
+> 下面"上不了外网"那一段以 opkg 为例，apk 把 `opkg install` 换成 `apk add` 即可。
 
 ### 如果路由器上不了外网怎么办
 
@@ -444,13 +494,23 @@ ls ~/sdk/immortalwrt-sdk-*/package/ruijie/
 
 **Q: 想确认包里的文件都对不对**
 
-不用装到路由器上，直接解开 `.ipk` 看（`.ipk` 就是 ar 包）：
+不用装到路由器上，直接解开看就行。
+
+**`.ipk`（24.10 及更早）—— 它就是一个 ar 包：**
 
 ```sh
 cd /tmp
 ar x ~/ruijie-pkg/dist/ruijie_1.0.0-1_*.ipk
 tar tzf data.tar.gz                    # 看装了哪些文件
 tar xzOf control.tar.gz ./control      # 看依赖关系
+```
+
+**`.apk`（25.12 及以后）—— 它就是带签名的 tar.gz，tar 直接能读：**
+
+```sh
+cd /tmp
+tar tzf ~/ruijie-pkg/dist/ruijie-1.0.0-r1.*.apk            # 看装了哪些文件
+tar xzOf ~/ruijie-pkg/dist/ruijie-1.0.0-r1.*.apk .PKGINFO  # 看元数据（相当于 ipk 的 control）
 ```
 
 ### 路由器阶段
@@ -645,33 +705,42 @@ cd openwrt
 > 我们这个包只依赖 `luci-compat` / `luci-lua-runtime`（都是 `all` 架构的纯 Lua 包），
 > 不带任何内核模块依赖，所以跨 target 是安全的。
 
-### 12.2 方式一：不编译，直接用 Release 里的 ipk（推荐给普通用户）
+### 12.2 方式一：不编译，直接用 Release 里的包（推荐给普通用户）
 
-仓库里的 GitHub Actions 会在每次打 tag 时按架构矩阵自动构建，
-并把 `.ipk` 附到 Release 上。使用者只需要：
+仓库里的 GitHub Actions 会在每次打 tag 时按矩阵自动构建，
+把 **`.ipk`（24.10 及更早）和 `.apk`（25.12 及以后）一起**附到同一个 Release 上。
 
 ```sh
-# 1. 在路由器上查架构
-. /etc/openwrt_release; echo $DISTRIB_ARCH
-# 例如输出 aarch64_cortex-a53
+# 1. 在路由器上查架构和版本
+. /etc/openwrt_release; echo "$DISTRIB_RELEASE | $DISTRIB_ARCH"
+# 例如输出 24.10.6 | aarch64_cortex-a53
 
-# 2. 下载两个文件
-#    ruijie_1.0.0-1_aarch64_cortex-a53.ipk   ← 按你的架构挑
-#    luci-app-ruijie_1.0.0-1_all.ipk         ← 所有架构共用这一个
+# 2. 按版本挑格式、按架构挑文件
+#    24.10.x  →  ruijie_1.0.0-1_aarch64_cortex-a53.ipk
+#    25.12.x  →  ruijie-1.0.0-r1.aarch64_cortex-a53.apk
+#    两种都要  →  luci-app-ruijie_1.0.0-1_all.ipk
+#                luci-app-ruijie-1.0.0-r1.apk        （架构无关，各自一份）
 
-# 3. 装上
+# 3. 24.10 及更早
 scp ruijie_*.ipk luci-app-ruijie_*.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1
 opkg update && opkg install luci-compat luci-lua-runtime
 cd /tmp && opkg install ./ruijie_*.ipk ./luci-app-ruijie_*.ipk
 /etc/init.d/uhttpd restart
+
+# 4. 25.12 及以后
+scp ruijie-*.apk luci-app-ruijie-*.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1
+apk add luci-compat luci-lua-runtime
+cd /tmp && apk add --allow-untrusted ./ruijie-*.apk ./luci-app-ruijie-*.apk
+/etc/init.d/uhttpd restart
 ```
 
 不用装 Go、不用下 SDK、不用编译。
 
-> `.ipk` 在 **24.10.x 内通用**：我们的包没有版本化的依赖，Go 二进制是静态链接的，
-> 用 24.10.6 的 SDK 编出来的包在 24.10.0~24.10.6 上都能装。
-> **25.12 换成了 apk 格式，需要另外出 `.apk`。**
+> **版本边界**：`.ipk` 在 **24.10.x 内通用**（我们的包没有版本化依赖、Go 二进制静态链接，
+> 用 24.10.6 的 SDK 编出来的在 24.10.0~24.10.6 上都能装）；`.apk` 同理在 25.12.x 内通用。
+> 但 **24.10 ↔ 25.12 之间不能互装**——那不是内容问题，是 opkg 和 apk 两种格式不通。
 
 ### 12.3 方式二：自己编译（三步）
 
@@ -698,23 +767,44 @@ cd openwrt
 
 ### 12.5 维护者：怎么增删 CI 支持的架构
 
-编辑 [`.github/workflows/build-ipk.yml`](../.github/workflows/build-ipk.yml) 里的 matrix：
+编辑 [`.github/workflows/build-ipk.yml`](../.github/workflows/build-ipk.yml) 里的矩阵。
+它是**二维**的：`fmt`（输出格式 × SDK 版本）× `target`（架构），
+所以现在是 `2 × 7 = 14` 个 job。
 
 ```yaml
-- { name: aarch64-cortex-a53, goarch: arm64, sdk: 'mediatek/filogic' }
+        fmt:
+          - { name: ipk, ver: '24.10.6' }     # 24.10.x 用 opkg
+          - { name: apk, ver: '25.12.2' }     # 25.12.x 用 apk
+
+        target:
+          - { name: aarch64-cortex-a53, goarch: arm64, sdk: 'mediatek/filogic', arch: aarch64_cortex-a53 }
 ```
 
-- `name` 只是给 job 和产物起的名，随便取
-- `goarch` 必须是 `./build-go.sh` 认得的目标（不带参数跑一次就能看到全部）
-- `sdk` 是 ImmortalWrt 的 `target/subtarget`，**只要架构对得上就行**，不必对应型号。
-  完整列表：<https://downloads.immortalwrt.org/releases/24.10.6/targets/>
-- 某个 target 下如果没有 SDK，那个 job 会明确报错，删掉那一行即可
-  （`fail-fast: false`，不影响其他 job）
-- 想跟新的 ImmortalWrt 版本，改 workflow 顶部的 `IWRT_VERSION`
+- `fmt.ver` —— ImmortalWrt 版本。**想跟新版只改这里**；一个 tag 会同时产出两种格式
+- `fmt.name` —— `ipk` 或 `apk`，用于 job 名和上传的 artifact 名
+- `target.goarch` —— 必须是 `./build-go.sh` 认得的目标（不带参数跑一次就能看到全部）
+- `target.sdk` —— ImmortalWrt 的 `target/subtarget`，**只要架构对得上就行**，不必对应型号。
+  完整列表：<https://downloads.immortalwrt.org/releases/>
+- `target.arch` —— 包元数据里的架构名，用来给 apk 补文件名后缀（apk 文件名本身不带架构）
+- 某个 target 下如果没发布 SDK，那一行会**跳过并给出黄色警告**，不会把整行跑红，
+  也不影响其他组合
+- 想缩短 CI 时间，把 `target` 列表裁到只留你关心的架构即可
 
-架构无关的 `luci-app-ruijie_*.ipk` 每个 job 都会产出一份，发布时只取一份，不会重名冲突。
+架构无关的 `luci-app-ruijie_*_all.ipk` / `luci-app-ruijie-*.apk` 每个 job 都会产出一份，
+发布时每种格式只取一份，不会重名冲突。
 
-### 12.6 开源前建议再补两样
+### 12.6 发布一个新版本
+
+```sh
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+workflow 会自动把 `PKG_VERSION` 覆盖成 `1.0.1`（不用手改 Makefile），
+构建 14 个组合，全部成功后创建 Release。**任意一个架构失败都会跳过发布**，
+不会发出残缺的 Release。
+
+### 12.7 开源前建议再补两样
 
 - **`LICENSE`**：仓库根目录放一个
 - **根目录 `README.md`**：现在这份是 `openwrt/` 里的构建手册，
