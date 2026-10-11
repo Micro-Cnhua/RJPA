@@ -1,0 +1,182 @@
+<%
+-- 基本设置页顶部：运行状态 + 服务类型检测
+local fs   = require "nixio.fs"
+local sys  = require "luci.sys"
+local uci  = require("luci.model.uci").cursor()
+local disp = require "luci.dispatcher"
+local pcdata = require("luci.util").pcdata
+
+local enabled = uci:get("ruijie", "main", "enabled")
+local logfile = uci:get("ruijie", "main", "log_file") or "/var/log/ruijie.log"
+local pid     = (sys.exec("pidof ruijie 2>/dev/null") or ""):gsub("%s+", "")
+local running = (pid ~= "")
+local size    = fs.stat(logfile, "size") or 0
+
+local url_svcstart = disp.build_url("admin", "network", "ruijie", "svcstart")
+local url_svcdata  = disp.build_url("admin", "network", "ruijie", "svcdata")
+-%>
+
+<div class="cbi-section">
+	<h3><%:运行状态%></h3>
+
+	<div style="display:table;width:100%">
+		<div style="display:table-row">
+			<div style="display:table-cell;width:30%;padding:6px 0"><%:服务进程%></div>
+			<div style="display:table-cell;padding:6px 0">
+			<% if running then %>
+				<span style="color:#0a0;font-weight:bold"><%:运行中%></span>
+				<span style="color:#888">(PID <%=pcdata(pid)%>)</span>
+			<% else %>
+				<span style="color:#c00;font-weight:bold"><%:未运行%></span>
+				<% if enabled ~= "1" then %>
+					<span style="color:#888">—— <%:还没有启用，请勾选下面的“启用认证”再保存%></span>
+				<% end %>
+			<% end %>
+			</div>
+		</div>
+
+		<div style="display:table-row">
+			<div style="display:table-cell;padding:6px 0"><%:日志文件%></div>
+			<div style="display:table-cell;padding:6px 0">
+				<code><%=pcdata(logfile)%></code>
+				<span style="color:#888">(<%=string.format("%.1f", size / 1024)%> KB)</span>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="cbi-section">
+	<h3><%:服务类型检测%></h3>
+
+	<div class="cbi-section-descr">
+		<%:点下面的按钮，客户端会去认证页面上抓取“服务类型”的真实可选值。%>
+		<%:因为要先探测网关，通常要几秒到几十秒。%>
+		<%:检测完成后，下面“服务类型”下拉框里的候选值会自动更新，无需刷新页面。%>
+	</div>
+
+	<div style="margin:10px 0;display:flex;align-items:center;flex-wrap:wrap;gap:10px">
+		<button type="button" id="ruijie-detect" class="cbi-button cbi-button-apply"><%:检测服务类型%></button>
+		<span id="ruijie-detect-status" style="color:#888"></span>
+	</div>
+
+	<pre id="ruijie-detect-out" style="display:none;margin:0;padding:10px;max-height:30vh;overflow:auto;background:#101418;color:#c8e6c9;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all;border-radius:3px"></pre>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+(function() {
+	var URL_START = '<%=url_svcstart%>';
+	var URL_DATA  = '<%=url_svcdata%>';
+
+	var btn      = document.getElementById('ruijie-detect');
+	var statusEl = document.getElementById('ruijie-detect-status');
+	var outEl    = document.getElementById('ruijie-detect-out');
+	var timer    = null;
+	var waited   = 0;
+
+	function get(url, cb) {
+		var x = new XMLHttpRequest();
+		x.open('GET', url, true);
+		x.onreadystatechange = function() {
+			if (x.readyState === 4) { cb(x.status === 200 ? x.responseText : ''); }
+		};
+		x.send(null);
+	}
+
+	// CBI 渲染出来的 name 是 cbid.ruijie.main.service，所以两种写法都试一下。
+	// 注意: 这段脚本在页面上半部分，此时下拉框还没解析出来，必须延迟查找。
+	function serviceSelect() {
+		return document.querySelector('select[name$=".service"]') ||
+		       document.querySelector('select[name="service"]');
+	}
+
+	function addOption(sel, value, label) {
+		var op = document.createElement('option');
+		op.value = value;
+		op.textContent = label;
+		sel.appendChild(op);
+	}
+
+	function rebuildSelect(services) {
+		var sel = serviceSelect();
+		if (!sel || !services || !services.length) { return false; }
+
+		var keep = sel.value;
+
+		while (sel.options.length) { sel.remove(0); }
+
+		addOption(sel, 'auto', '自动检测（用检测到的第一个）');
+
+		for (var i = 0; i < services.length; i++) {
+			var sv = services[i];
+			var label = sv.label ? (sv.value + '（' + sv.label + '）') : sv.value;
+			addOption(sel, sv.value, label);
+		}
+
+		sel.value = keep;
+		if (sel.selectedIndex < 0) { sel.selectedIndex = 0; }
+
+		return true;
+	}
+
+	function stop(msg, failed) {
+		if (timer) { clearInterval(timer); timer = null; }
+		btn.disabled = false;
+		statusEl.textContent = msg || '';
+		statusEl.style.color = failed ? '#c00' : '#888';
+	}
+
+	function poll() {
+		waited += 1.5;
+
+		get(URL_DATA, function(body) {
+			var res = null;
+			try { res = JSON.parse(body); } catch (e) { res = null; }
+
+			if (!res) {
+				if (waited > 90) { stop('检测超时', true); }
+				return;
+			}
+
+			if (res.text) {
+				outEl.style.display = '';
+				outEl.textContent = res.text;
+			}
+
+			if (res.done) {
+				var services = res.services || [];
+				var n = services.length;
+				var updated = rebuildSelect(services);
+
+				if (n === 0) {
+					stop('检测完成，但没解析到可选服务类型（看下面的原始输出）', true);
+				} else if (updated) {
+					stop('检测完成，已更新“服务类型”下拉框（' + n + ' 个可选值）');
+				} else {
+					stop('检测到 ' + n + ' 个可选值，但没找到下拉框，请手动刷新页面');
+				}
+			} else if (waited > 90) {
+				stop('检测超时（90 秒），可看下面的原始输出', true);
+			} else {
+				statusEl.textContent = '检测中… 已等待 ' + Math.round(waited) + ' 秒';
+			}
+		});
+	}
+
+	btn.onclick = function() {
+		btn.disabled = true;
+		statusEl.style.color = '#888';
+		statusEl.textContent = '正在探测网关并请求认证页面…';
+		outEl.style.display = 'none';
+		outEl.textContent = '';
+
+		get(URL_START, function() {
+			waited = 0;
+			if (timer) { clearInterval(timer); }
+			timer = setInterval(poll, 1500);
+			setTimeout(poll, 500);
+		});
+	};
+})();
+//]]>
+</script>

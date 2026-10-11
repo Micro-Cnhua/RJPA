@@ -1,0 +1,140 @@
+<%
+-- 基本设置页底部：连接日志框
+-- 纯 Lua 模板 + 原生 XHR，不依赖 JS 版 LuCI 的 XHR 封装
+local fs   = require "nixio.fs"
+local sys  = require "luci.sys"
+local uci  = require("luci.model.uci").cursor()
+local disp = require "luci.dispatcher"
+local pcdata = require("luci.util").pcdata
+
+local logfile = uci:get("ruijie", "main", "log_file") or "/var/log/ruijie.log"
+local pid     = (sys.exec("pidof ruijie 2>/dev/null") or ""):gsub("%s+", "")
+local running = (pid ~= "")
+local size    = fs.stat(logfile, "size") or 0
+
+local url_log   = disp.build_url("admin", "network", "ruijie", "logdata")
+local url_clear = disp.build_url("admin", "network", "ruijie", "logclear")
+-%>
+
+<div class="cbi-section">
+	<h3><%:连接日志%></h3>
+
+	<div class="cbi-section-descr">
+		<%:后台认证进程的输出。默认写在内存盘%>
+		<code><%=pcdata(logfile)%></code>
+		<%:（当前%> <%=string.format("%.1f", size / 1024)%> KB<%:），路由器重启后清空。%>
+	</div>
+
+	<div style="margin:10px 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+		<span><%:显示行数%></span>
+		<input type="text" id="ruijie-lines" value="200" size="5" />
+
+		<span><%:关键字%></span>
+		<input type="text" id="ruijie-filter" value="" size="12" placeholder="认证" />
+
+		<button type="button" id="ruijie-refresh" class="cbi-button cbi-button-apply"><%:刷新%></button>
+		<button type="button" id="ruijie-clear" class="cbi-button cbi-button-reset"><%:清空日志%></button>
+
+		<label style="margin-left:6px">
+			<input type="checkbox" id="ruijie-auto" checked="checked" />
+			<%:自动刷新（5 秒）%>
+		</label>
+
+		<span id="ruijie-status" style="color:#888"></span>
+	</div>
+
+<% if not running then %>
+	<div style="margin-bottom:6px;color:#c00">
+		<%:服务未运行——如果一直这样，请检查上面的账号密码，或看下面日志里的报错。%>
+	</div>
+<% end %>
+
+	<pre id="ruijie-log" style="margin:0;padding:10px;max-height:40vh;overflow:auto;background:#101418;color:#c8e6c9;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all;border-radius:3px">正在加载…</pre>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+(function() {
+	var URL_LOG   = '<%=url_log%>';
+	var URL_CLEAR = '<%=url_clear%>';
+
+	var box      = document.getElementById('ruijie-log');
+	var statusEl = document.getElementById('ruijie-status');
+	var linesEl  = document.getElementById('ruijie-lines');
+	var filterEl = document.getElementById('ruijie-filter');
+	var autoEl   = document.getElementById('ruijie-auto');
+	var timer    = null;
+
+	function get(url, cb) {
+		var x = new XMLHttpRequest();
+		x.open('GET', url, true);
+		x.onreadystatechange = function() {
+			if (x.readyState === 4) { cb(x.status === 200 ? x.responseText : ''); }
+		};
+		x.send(null);
+	}
+
+	function stamp() {
+		var d = new Date();
+		function p(n) { return (n < 10 ? '0' : '') + n; }
+		return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+	}
+
+	// build_url() 有可能自带 ?token=...，所以不能无脑拼 '?'
+	function addParams(url, qs) {
+		return url + (url.indexOf('?') >= 0 ? '&' : '?') + qs;
+	}
+
+	function load() {
+		var url = addParams(URL_LOG,
+			'lines=' + encodeURIComponent(linesEl.value || '200') +
+			'&filter=' + encodeURIComponent(filterEl.value || ''));
+
+		get(url, function(text) {
+			var atBottom = (box.scrollTop + box.clientHeight) >= (box.scrollHeight - 30);
+
+			box.textContent = (text && text.length)
+				? text
+				: '（暂无日志：服务可能还没启动，或日志已被清空）';
+
+			if (atBottom) { box.scrollTop = box.scrollHeight; }
+			statusEl.textContent = '更新于 ' + stamp();
+		});
+	}
+
+	function setAuto(on) {
+		if (timer) { clearInterval(timer); timer = null; }
+		if (on) { timer = setInterval(load, 5000); }
+	}
+
+	// 这两个输入框在 CBI 的 <form> 里，回车会触发“保存并应用”，拦掉
+	function enterLoads(el) {
+		el.onkeydown = function(e) {
+			e = e || window.event;
+			if (e.keyCode === 13) {
+				if (e.preventDefault) { e.preventDefault(); }
+				load();
+				return false;
+			}
+		};
+	}
+
+	document.getElementById('ruijie-refresh').onclick = function() { load(); };
+
+	document.getElementById('ruijie-clear').onclick = function() {
+		if (!confirm('确定清空连接日志？')) { return; }
+		get(URL_CLEAR, function() { load(); });
+	};
+
+	autoEl.onchange   = function() { setAuto(this.checked); };
+	linesEl.onchange  = function() { load(); };
+	filterEl.onchange = function() { load(); };
+
+	enterLoads(linesEl);
+	enterLoads(filterEl);
+
+	setAuto(true);
+	load();
+})();
+//]]>
+</script>

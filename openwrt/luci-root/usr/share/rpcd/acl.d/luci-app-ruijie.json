@@ -1,0 +1,11 @@
+{
+	"luci-app-ruijie": {
+		"description": "LuCI support for the Ruijie campus network client",
+		"read": {
+			"uci": [ "ruijie" ]
+		},
+		"write": {
+			"uci": [ "ruijie" ]
+		}
+	}
+}

@@ -1,0 +1,97 @@
+#!/bin/sh /etc/rc.common
+#
+# 锐捷校园网认证客户端 (ruijie) —— procd 服务脚本
+#
+# 日志策略:
+#   Go 程序只往 stdout 打印，这里把 stdout/stderr 重定向到日志文件，
+#   LuCI 的“连接日志”页面直接读这个文件，稳定可控。
+#   另外用 logger 把服务启停事件写进系统日志（带时间戳），方便 logread 排查。
+#
+# 注意: 日志文件默认放 /var/log（内存盘），重启会丢，但不会磨损 flash。
+#       想持久保存请改 UCI 的 log_file，并把 log_max_kb 调小。
+#
+
+START=95
+STOP=15
+USE_PROCD=1
+
+PROG=/usr/bin/ruijie
+DEFAULT_LOG=/var/log/ruijie.log
+DEFAULT_MAX_KB=256
+KEEP_LINES=2000
+
+# 把一个字符串安全地包成 shell 单引号字面量。
+# 密码里可能有空格、$、; 等字符，直接拼命令会被 shell 解释甚至造成命令注入。
+shell_quote() {
+	printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+rotate_log() {
+	local file="$1" max_kb="$2" size
+
+	[ -f "$file" ] || return 0
+	[ -n "$max_kb" ] && [ "$max_kb" -gt 0 ] 2>/dev/null || return 0
+
+	size=$(wc -c < "$file" 2>/dev/null) || return 0
+	[ "$size" -gt $((max_kb * 1024)) ] || return 0
+
+	tail -n "$KEEP_LINES" "$file" > "$file.tmp" 2>/dev/null && mv "$file.tmp" "$file"
+}
+
+start_service() {
+	local enabled username password service manual_url persistent
+	local log_file max_kb cmd
+
+	config_load ruijie
+	config_get_bool enabled    main enabled     0
+	config_get      username   main username    ""
+	config_get      password   main password    ""
+	config_get      service    main service     "auto"
+	config_get      manual_url main manual_url  ""
+	config_get_bool persistent main persistent  1
+	config_get      log_file   main log_file    "$DEFAULT_LOG"
+	config_get      max_kb     main log_max_kb  "$DEFAULT_MAX_KB"
+
+	if [ "$enabled" != "1" ]; then
+		logger -t ruijie "未启用，跳过启动"
+		return 0
+	fi
+
+	if [ -z "$username" ] || [ -z "$password" ]; then
+		logger -t ruijie "用户名或密码为空，拒绝启动"
+		return 0
+	fi
+
+	mkdir -p "$(dirname "$log_file")" 2>/dev/null
+	rotate_log "$log_file" "$max_kb"
+
+	cmd="exec $PROG -u $(shell_quote "$username") -p $(shell_quote "$password")"
+	cmd="$cmd -s $(shell_quote "$service")"
+	[ -n "$manual_url" ] && cmd="$cmd -m $(shell_quote "$manual_url")"
+	[ "$persistent" = "1" ] && cmd="$cmd -e"
+	cmd="$cmd >>$(shell_quote "$log_file") 2>&1"
+
+	# 只记录非敏感信息，绝不把密码写进系统日志
+	logger -t ruijie "启动认证 (用户=$username 服务=$service 持久化=$persistent)"
+
+	procd_open_instance
+	# 用 sh -c + exec: procd 跟踪到的就是 ruijie 自己的 PID，
+	# 停止/重启能正确发信号，同时又能做输出重定向。
+	procd_set_param command /bin/sh -c "$cmd"
+	procd_set_param respawn 3600 10 5
+	procd_close_instance
+}
+
+stop_service() {
+	logger -t ruijie "停止认证客户端"
+}
+
+reload_service() {
+	stop
+	start
+}
+
+service_triggers() {
+	# 在 LuCI 里点“保存并应用”后自动重启服务
+	procd_add_reload_trigger "ruijie"
+}
