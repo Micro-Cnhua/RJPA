@@ -123,11 +123,11 @@ jobs:
           ./build-ipk.sh "$SDK_DIR"
 
       # ------------------------------------------------------------------
-      # apk 的文件名里不带架构（ruijie-1.0.1-r1.apk），
+      # apk 的文件名里不带架构（rjpa-1.0.1-r1.apk），
       # 7 个架构会产出 7 个同名文件，在 Release 里会冲突。
       # 这里给「架构相关」的那个包补上架构后缀。
       #
-      # 只处理 ruijie-*.apk：luci-app-ruijie-*.apk 是架构无关的，
+      # 只处理 rjpa-*.apk：luci-app-rjpa-*.apk 是架构无关的，
       # 每个 job 产出的内容一样，release 时只取一份。
       #
       # case 那三行是兜底：万一将来 OpenWrt 自己在文件名里带上架构，
@@ -137,7 +137,7 @@ jobs:
         if: steps.sdk.outputs.skip != 'true' && matrix.fmt.name == 'apk'
         working-directory: openwrt
         run: |
-          for f in dist/ruijie-*.apk; do
+          for f in dist/rjpa-*.apk; do
             [ -e "$f" ] || continue
             case "$f" in
               *".${{ matrix.target.arch }}.apk") continue ;;
@@ -172,13 +172,13 @@ jobs:
           mkdir -p out
 
           # 架构相关的包：
-          #   .ipk 文件名自带架构（ruijie_1.0.1-1_aarch64_cortex-a53.ipk）
-          #   .apk 已经在上一步补了架构后缀（ruijie-1.0.1-r1.aarch64_cortex-a53.apk）
-          find artifacts -name 'ruijie_*.ipk' -exec cp -v {} out/ \;
-          find artifacts -name 'ruijie-*.apk' -exec cp -v {} out/ \;
+          #   .ipk 文件名自带架构（rjpa.0.1-1_aarch64_cortex-a53.ipk）
+          #   .apk 已经在上一步补了架构后缀（rjpa-1.0.1-r1.aarch64_cortex-a53.apk）
+          find artifacts -name 'rjpa*.ipk' -exec cp -v {} out/ \;
+          find artifacts -name 'rjpa-*.apk' -exec cp -v {} out/ \;
 
           # 架构无关的 LuCI 包：每种格式各取一份（每个 job 产出的内容一样）
-          for pat in 'luci-app-ruijie_*.ipk' 'luci-app-ruijie-*.apk'; do
+          for pat in 'luci-app-rjpa_*.ipk' 'luci-app-rjpa-*.apk'; do
             f="$(find artifacts -name "$pat" | head -n1)"
             [ -n "$f" ] && cp -v "$f" out/
           done
