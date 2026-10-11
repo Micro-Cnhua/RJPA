@@ -1,47 +1,56 @@
-name: Build IPK
+name: Build Packages
 
-# 打 tag（例如 v1.0.0）时自动构建并发布；也可以在 Actions 页面手动触发试跑
+# 打 tag（例如 v1.0.1）时自动构建并发布；也可以在 Actions 页面手动触发试跑
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
 
-env:
-  # 想跟新 ImmortalWrt 版本时，只改这一行
-  IWRT_VERSION: '24.10.6'
-
 jobs:
   build:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.fmt.name }}-${{ matrix.target.name }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # ------------------------------------------------------------------
-          # 一行 = 一个「架构」，不是一个「型号」。
-          #
-          # 同一个架构下所有设备共用同一个 .ipk，所以 MT7981 和 IPQ807x
-          # （都是 aarch64_cortex-a53）只需要跑一次。
-          #
-          #   goarch → 传给 ./build-go.sh
-          #   sdk    → ImmortalWrt 的 target/subtarget。只要架构对得上就行，
-          #            不要求和设备型号一一对应。
-          #            完整列表: https://downloads.immortalwrt.org/releases/24.10.6/targets/
-          #
-          # 如果某个 sdk 下没有发布 SDK，这一行会「跳过并给出警告」，
-          # 不会把整行跑红，也不影响其他架构。
-          # ------------------------------------------------------------------
-          - { name: x86_64,             goarch: amd64,            sdk: 'x86/64' }
-          - { name: aarch64-cortex-a53, goarch: arm64,            sdk: 'mediatek/filogic' }
-          - { name: aarch64-generic,    goarch: arm64,            sdk: 'armsr/armv8' }
-          - { name: mipsel-24kc,        goarch: mipsle-softfloat, sdk: 'ramips/mt7621' }
-          - { name: mips-24kc,          goarch: mips-softfloat,   sdk: 'ath79/generic' }
-          - { name: arm-cortex-a7,      goarch: arm-v7,           sdk: 'sunxi/cortexa7' }
-          - { name: arm-cortex-a9,      goarch: arm-v7,           sdk: 'mvebu/cortexa9' }
+        # ------------------------------------------------------------------
+        # 第一维：输出格式 + 对应的 ImmortalWrt SDK 版本
+        #
+        #   24.10.x 用 opkg，产物是 .ipk
+        #   25.12.x 改用 apk，产物是 .apk
+        #
+        # 同一个 SDK 出不了两种格式（25.12 已经移除 opkg），所以两套都要跑。
+        # 想跟新的 ImmortalWrt 版本时，改这里的 ver。
+        # ------------------------------------------------------------------
+        fmt:
+          - { name: ipk, ver: '24.10.6' }
+          - { name: apk, ver: '25.12.2' }
+
+        # ------------------------------------------------------------------
+        # 第二维：架构（一行 = 一个「架构」，不是一个「型号」）
+        #
+        #   同一个架构下所有设备共用同一个包。比如 MT7981 和 IPQ807x
+        #   都是 aarch64_cortex-a53，只需要跑一次。
+        #
+        #   goarch → 传给 ./build-go.sh
+        #   sdk    → ImmortalWrt 的 target/subtarget，只要架构对得上就行，
+        #            不要求和设备型号一一对应
+        #   arch   → 包元数据里的架构名，用来给 apk 补文件名后缀
+        #
+        # 某个 sdk 下如果没发布 SDK，这一行会「跳过并给出警告」，
+        # 不会把整行跑红，也不影响其他组合。
+        # ------------------------------------------------------------------
+        target:
+          - { name: x86_64,             goarch: amd64,            sdk: 'x86/64',           arch: x86_64 }
+          - { name: aarch64-cortex-a53, goarch: arm64,            sdk: 'mediatek/filogic', arch: aarch64_cortex-a53 }
+          - { name: aarch64-generic,    goarch: arm64,            sdk: 'armsr/armv8',      arch: aarch64_generic }
+          - { name: mipsel-24kc,        goarch: mipsle-softfloat, sdk: 'ramips/mt7621',    arch: mipsel_24kc }
+          - { name: mips-24kc,          goarch: mips-softfloat,   sdk: 'ath79/generic',    arch: mips_24kc }
+          - { name: arm-cortex-a7,      goarch: arm-v7,           sdk: 'sunxi/cortexa7',   arch: arm_cortex-a7_neon-vfpv4 }
+          - { name: arm-cortex-a9,      goarch: arm-v7,           sdk: 'mvebu/cortexa9',   arch: arm_cortex-a9_neon }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 安装打包依赖
         run: |
@@ -49,22 +58,23 @@ jobs:
           sudo apt-get install -y zstd make gcc file
 
       # ------------------------------------------------------------------
-      # 先确认这个架构有没有 SDK，没有就跳过。
-      # 这样别人往 matrix 里加架构、target 名写错时，只影响那一行。
+      # 先确认这个架构有没有 SDK，没有就跳过（只影响这一行）
       # ------------------------------------------------------------------
       - name: 下载并解压 SDK
         id: sdk
         run: |
-          BASE="https://downloads.immortalwrt.org/releases/${IWRT_VERSION}/targets/${{ matrix.sdk }}/"
+          VER="${{ matrix.fmt.ver }}"
+          BASE="https://downloads.immortalwrt.org/releases/${VER}/targets/${{ matrix.target.sdk }}/"
           echo "SDK 目录: $BASE"
 
-          # 从目录索引里抓 SDK 文件名，避免把 gcc 版本号写死在这里
+          # 从目录索引里抓 SDK 文件名。
+          # 千万别把 gcc 版本写死：24.10 是 gcc-13.3.0，25.12 是 gcc-14.3.0。
           LISTING="$(curl -fsSL "$BASE" 2>/dev/null || true)"
           SDK_FILE="$(printf '%s' "$LISTING" | grep -oE 'immortalwrt-sdk-[A-Za-z0-9._-]+\.tar\.zst' | head -n1)"
 
           if [ -z "$SDK_FILE" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::warning title=跳过 ${{ matrix.name }}::$BASE 下没找到 SDK，这个 target 可能没有发布 SDK 或 subtarget 名字写错了。换一个 target 即可，见 https://downloads.immortalwrt.org/releases/${IWRT_VERSION}/targets/"
+            echo "::warning title=跳过 ${{ matrix.fmt.name }}-${{ matrix.target.name }}::$BASE 下没找到 SDK，这个 target 可能没发布 SDK 或 subtarget 名字写错了。换一个 target 即可，见 https://downloads.immortalwrt.org/releases/${VER}/targets/"
             exit 0
           fi
 
@@ -76,19 +86,35 @@ jobs:
           rm -f "/tmp/$SDK_FILE"
           du -sh ~/sdk/*
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         if: steps.sdk.outputs.skip != 'true'
         with:
           go-version: 'stable'
+          # 这个项目没有 go.mod / go.sum（单文件、纯标准库），
+          # 不关掉的话每次都会刷 "Restore cache failed: ... go.sum"
+          cache: false
 
       - name: 交叉编译 Go 二进制
         if: steps.sdk.outputs.skip != 'true'
         working-directory: openwrt
         run: |
           chmod +x build-go.sh build-ipk.sh
-          ./build-go.sh ${{ matrix.goarch }}
+          ./build-go.sh ${{ matrix.target.goarch }}
 
-      - name: 打成 ipk
+      # ------------------------------------------------------------------
+      # 打 tag 时用 tag 名当版本号，避免 Makefile 里的版本号和 tag 对不上。
+      #   例: tag v1.0.1 -> PKG_VERSION:=1.0.1
+      # 手动触发（没有 tag）时不执行，用 Makefile 里现有的版本号，方便试跑。
+      # ------------------------------------------------------------------
+      - name: 用 tag 覆盖包版本号
+        if: steps.sdk.outputs.skip != 'true' && startsWith(github.ref, 'refs/tags/')
+        working-directory: openwrt
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$VER/" Makefile
+          grep -E '^PKG_(VERSION|RELEASE)' Makefile
+
+      - name: 打成软件包
         if: steps.sdk.outputs.skip != 'true'
         working-directory: openwrt
         run: |
@@ -96,23 +122,48 @@ jobs:
           echo "使用 SDK: $SDK_DIR"
           ./build-ipk.sh "$SDK_DIR"
 
+      # ------------------------------------------------------------------
+      # apk 的文件名里不带架构（ruijie-1.0.1-r1.apk），
+      # 7 个架构会产出 7 个同名文件，在 Release 里会冲突。
+      # 这里给「架构相关」的那个包补上架构后缀。
+      #
+      # 只处理 ruijie-*.apk：luci-app-ruijie-*.apk 是架构无关的，
+      # 每个 job 产出的内容一样，release 时只取一份。
+      #
+      # case 那三行是兜底：万一将来 OpenWrt 自己在文件名里带上架构，
+      # 就不会重复追加。
+      # ------------------------------------------------------------------
+      - name: 给 apk 补架构后缀
+        if: steps.sdk.outputs.skip != 'true' && matrix.fmt.name == 'apk'
+        working-directory: openwrt
+        run: |
+          for f in dist/ruijie-*.apk; do
+            [ -e "$f" ] || continue
+            case "$f" in
+              *".${{ matrix.target.arch }}.apk") continue ;;
+            esac
+            mv "$f" "${f%.apk}.${{ matrix.target.arch }}.apk"
+          done
+          ls -l dist/
+
       - name: 上传产物
         if: steps.sdk.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: ipk-${{ matrix.name }}
-          path: openwrt/dist/*.ipk
+          name: ${{ matrix.fmt.name }}-${{ matrix.target.name }}
+          path: openwrt/dist/*
           if-no-files-found: error
 
   release:
-    # 只在打 tag 时把 ipk 附到 Release 上；手动触发只留 artifact
+    # 只在打 tag 时把包附到 Release 上；手动触发只留 artifact。
+    # needs 保证：任意一个架构失败都会跳过发布，不会发出残缺的 Release。
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -120,25 +171,32 @@ jobs:
         run: |
           mkdir -p out
 
-          # 架构相关的包：每个 job 各一份，文件名自带架构，不会重名
-          find artifacts -name 'rjpa_*.ipk' -exec cp -v {} out/ \;
+          # 架构相关的包：
+          #   .ipk 文件名自带架构（ruijie_1.0.1-1_aarch64_cortex-a53.ipk）
+          #   .apk 已经在上一步补了架构后缀（ruijie-1.0.1-r1.aarch64_cortex-a53.apk）
+          find artifacts -name 'ruijie_*.ipk' -exec cp -v {} out/ \;
+          find artifacts -name 'ruijie-*.apk' -exec cp -v {} out/ \;
 
-          # 架构无关的 LuCI 包：每个 job 产出的内容一样，只取一份
-          LUCI_IPK="$(find artifacts -name 'luci-app-rjpa_*.ipk' | head -n1)"
-          if [ -n "$LUCI_IPK" ]; then
-            cp -v "$LUCI_IPK" out/
-          fi
+          # 架构无关的 LuCI 包：每种格式各取一份（每个 job 产出的内容一样）
+          for pat in 'luci-app-ruijie_*.ipk' 'luci-app-ruijie-*.apk'; do
+            f="$(find artifacts -name "$pat" | head -n1)"
+            [ -n "$f" ] && cp -v "$f" out/
+          done
 
           echo "--- 将发布 ---"
           ls -l out/
 
-          if [ "$(find out -name '*.ipk' | wc -l)" -eq 0 ]; then
-            echo "::error::一个 ipk 都没有产出，检查 build 里的各个架构是否全被跳过了"
+          if [ "$(find out -name '*.ipk' -o -name '*.apk' | wc -l)" -eq 0 ]; then
+            echo "::error::一个包都没产出，检查 build 里的各个组合是不是全被跳过了"
             exit 1
           fi
 
       - name: 附到 Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          files: out/*.ipk
+          files: |
+            out/*.ipk
+            out/*.apk
           generate_release_notes: true
+          # 想先出草稿、人工确认后再发布，把下面这行取消注释
+          # draft: true
