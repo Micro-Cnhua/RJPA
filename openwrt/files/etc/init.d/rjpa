@@ -1,6 +1,6 @@
 #!/bin/sh /etc/rc.common
 #
-# 锐捷校园网认证客户端 (ruijie) —— procd 服务脚本
+# 锐捷校园网认证客户端 (rjpa) —— procd 服务脚本
 #
 # 日志策略:
 #   Go 程序只往 stdout 打印，这里把 stdout/stderr 重定向到日志文件，
@@ -15,8 +15,8 @@ START=95
 STOP=15
 USE_PROCD=1
 
-PROG=/usr/bin/ruijie
-DEFAULT_LOG=/var/log/ruijie.log
+PROG=/usr/bin/rjpa
+DEFAULT_LOG=/var/log/rjpa.log
 DEFAULT_MAX_KB=256
 KEEP_LINES=2000
 
@@ -42,7 +42,7 @@ start_service() {
 	local enabled username password service manual_url persistent
 	local log_file max_kb cmd
 
-	config_load ruijie
+	config_load rjpa
 	config_get_bool enabled    main enabled     0
 	config_get      username   main username    ""
 	config_get      password   main password    ""
@@ -53,12 +53,12 @@ start_service() {
 	config_get      max_kb     main log_max_kb  "$DEFAULT_MAX_KB"
 
 	if [ "$enabled" != "1" ]; then
-		logger -t ruijie "未启用，跳过启动"
+		logger -t rjpa "未启用，跳过启动"
 		return 0
 	fi
 
 	if [ -z "$username" ] || [ -z "$password" ]; then
-		logger -t ruijie "用户名或密码为空，拒绝启动"
+		logger -t rjpa "用户名或密码为空，拒绝启动"
 		return 0
 	fi
 
@@ -72,10 +72,10 @@ start_service() {
 	cmd="$cmd >>$(shell_quote "$log_file") 2>&1"
 
 	# 只记录非敏感信息，绝不把密码写进系统日志
-	logger -t ruijie "启动认证 (用户=$username 服务=$service 持久化=$persistent)"
+	logger -t rjpa "启动认证 (用户=$username 服务=$service 持久化=$persistent)"
 
 	procd_open_instance
-	# 用 sh -c + exec: procd 跟踪到的就是 ruijie 自己的 PID，
+	# 用 sh -c + exec: procd 跟踪到的就是 rjpa 自己的 PID，
 	# 停止/重启能正确发信号，同时又能做输出重定向。
 	procd_set_param command /bin/sh -c "$cmd"
 	procd_set_param respawn 3600 10 5
@@ -83,7 +83,7 @@ start_service() {
 }
 
 stop_service() {
-	logger -t ruijie "停止认证客户端"
+	logger -t rjpa "停止认证客户端"
 }
 
 reload_service() {
@@ -93,5 +93,5 @@ reload_service() {
 
 service_triggers() {
 	# 在 LuCI 里点“保存并应用”后自动重启服务
-	procd_add_reload_trigger "ruijie"
+	procd_add_reload_trigger "rjpa"
 }

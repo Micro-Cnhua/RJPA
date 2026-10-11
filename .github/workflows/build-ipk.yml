@@ -125,25 +125,38 @@ jobs:
       # ------------------------------------------------------------------
       # apk 的文件名里不带架构（rjpa-1.0.1-r1.apk），
       # 7 个架构会产出 7 个同名文件，在 Release 里会冲突。
-      # 这里给「架构相关」的那个包补上架构后缀。
+      # 统一给两个包都补上架构后缀，Release 里就是
+      #   rjpa-<架构>  /  luci-rjpa-<架构>
       #
-      # 只处理 rjpa-*.apk：luci-app-rjpa-*.apk 是架构无关的，
-      # 每个 job 产出的内容一样，release 时只取一份。
+      #   .ipk 本来就带架构（rjpa_1.0.1-1_aarch64_cortex-a53.ipk），
+      #        只有 luci 包是 _all，要换成真实架构名；
+      #   .apk 文件名里压根不带架构，两个包都要补。
       #
-      # case 那三行是兜底：万一将来 OpenWrt 自己在文件名里带上架构，
-      # 就不会重复追加。
+      # case 那三行是兜底：万一将来 OpenWrt 自己在文件名里带上架构，就不会重复追加。
       # ------------------------------------------------------------------
-      - name: 给 apk 补架构后缀
-        if: steps.sdk.outputs.skip != 'true' && matrix.fmt.name == 'apk'
+      - name: 给包名补上架构后缀
+        if: steps.sdk.outputs.skip != 'true'
         working-directory: openwrt
         run: |
-          for f in dist/rjpa-*.apk; do
-            [ -e "$f" ] || continue
-            case "$f" in
-              *".${{ matrix.target.arch }}.apk") continue ;;
-            esac
-            mv "$f" "${f%.apk}.${{ matrix.target.arch }}.apk"
-          done
+          ARCH="${{ matrix.target.arch }}"
+
+          if [ "${{ matrix.fmt.name }}" = ipk ]; then
+            # luci-rjpa_1.0.1-1_all.ipk  ->  luci-rjpa_1.0.1-1_<架构>.ipk
+            for f in dist/luci-rjpa_*_all.ipk; do
+              [ -e "$f" ] || continue
+              mv "$f" "${f%_all.ipk}_$ARCH.ipk"
+            done
+          else
+            # rjpa-1.0.1-r1.apk / luci-rjpa-1.0.1-r1.apk  ->  末尾补 .<架构>
+            for f in dist/*.apk; do
+              [ -e "$f" ] || continue
+              case "$f" in
+                *".$ARCH.apk") continue ;;
+              esac
+              mv "$f" "${f%.apk}.$ARCH.apk"
+            done
+          fi
+
           ls -l dist/
 
       - name: 上传产物
@@ -171,17 +184,13 @@ jobs:
         run: |
           mkdir -p out
 
-          # 架构相关的包：
-          #   .ipk 文件名自带架构（rjpa.0.1-1_aarch64_cortex-a53.ipk）
-          #   .apk 已经在上一步补了架构后缀（rjpa-1.0.1-r1.aarch64_cortex-a53.apk）
-          find artifacts -name 'rjpa*.ipk' -exec cp -v {} out/ \;
-          find artifacts -name 'rjpa-*.apk' -exec cp -v {} out/ \;
-
-          # 架构无关的 LuCI 包：每种格式各取一份（每个 job 产出的内容一样）
-          for pat in 'luci-app-rjpa_*.ipk' 'luci-app-rjpa-*.apk'; do
-            f="$(find artifacts -name "$pat" | head -n1)"
-            [ -n "$f" ] && cp -v "$f" out/
-          done
+          # 两种包、两种格式，名字里都已经带架构，不会重名冲突：
+          #   rjpa_<版本>_<架构>.ipk          luci-rjpa_<版本>_<架构>.ipk
+          #   rjpa-<版本>-r<修订>.<架构>.apk  luci-rjpa-<版本>-r<修订>.<架构>.apk
+          find artifacts -name 'rjpa_*.ipk'      -exec cp -v {} out/ \;
+          find artifacts -name 'luci-rjpa_*.ipk' -exec cp -v {} out/ \;
+          find artifacts -name 'rjpa-*.apk'      -exec cp -v {} out/ \;
+          find artifacts -name 'luci-rjpa-*.apk' -exec cp -v {} out/ \;
 
           echo "--- 将发布 ---"
           ls -l out/

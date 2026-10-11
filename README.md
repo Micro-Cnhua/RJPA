@@ -16,7 +16,7 @@
 | **LuCI 网页界面** | 填账号密码、看运行状态，全在浏览器里完成 |
 | **实时连接日志** | 断线、重连、认证失败都记下来，出问题好排查 |
 | **持久化在线** | 断网后自动重连，重试间隔按 20→40→80→…→300 秒退避，不会猛打认证服务器 |
-| **命令行也能用** | 没有 LuCI 也能跑：`ruijie -u 学号 -p 密码 -s auto -e` |
+| **命令行也能用** | 没有 LuCI 也能跑：`rjpa -u 学号 -p 密码 -s auto -e` |
 
 **不依赖内核模块**，也没有版本绑定的依赖，所以同一个架构下所有设备共用同一个包。
 
@@ -78,10 +78,10 @@ SSH 登录路由器，执行这一条：
 
 | 要下载的文件 | 怎么挑 |
 |---|---|
-| `ruijie_1.0.1-1_aarch64_cortex-a53.ipk`<br>或 `ruijie-1.0.1-r1.aarch64_cortex-a53.apk` | **文件名末尾就是你查到的架构**，照着对 |
-| `luci-app-ruijie_1.0.1-1_all.ipk`<br>或 `luci-app-ruijie-1.0.1-r1.apk` | 界面包，**架构无关**，所有设备都用同一个 |
+| `rjpa_1.0.1-1_aarch64_cortex-a53.ipk`<br>或 `rjpa-1.0.1-r1.aarch64_cortex-a53.apk` | **文件名末尾就是你查到的架构**，照着对 |
+| `luci-rjpa_1.0.1-1_all.ipk`<br>或 `luci-rjpa-1.0.1-r1.apk` | 界面包，**架构无关**，所有设备都用同一个 |
 
-一句话：**`ruijie-*` 按架构挑，`luci-app-ruijie-*` 随便哪个都行。**
+一句话：**`rjpa-*` 按架构挑，`luci-rjpa-*` 随便哪个都行。**
 
 ### 第 3 步：装上去
 
@@ -89,27 +89,27 @@ SSH 登录路由器，执行这一条：
 
 ```sh
 # 传到路由器
-scp ruijie_1.0.1-1_aarch64_cortex-a53.ipk luci-app-ruijie_1.0.1-1_all.ipk root@192.168.1.1:/tmp/
+scp rjpa_1.0.1-1_aarch64_cortex-a53.ipk luci-rjpa_1.0.1-1_all.ipk root@192.168.1.1:/tmp/
 
 # 登录路由器安装
 ssh root@192.168.1.1
 opkg update
 opkg install luci-compat luci-lua-runtime        # 必须，见下面常见问题第 1 条
 cd /tmp
-opkg install ./ruijie_1.0.1-1_aarch64_cortex-a53.ipk ./luci-app-ruijie_1.0.1-1_all.ipk
+opkg install ./rjpa_1.0.1-1_aarch64_cortex-a53.ipk ./luci-rjpa_1.0.1-1_all.ipk
 /etc/init.d/uhttpd restart
 ```
 
 **25.12 及以后（apk）：**
 
 ```sh
-scp ruijie-1.0.1-r1.aarch64_cortex-a53.apk luci-app-ruijie-1.0.1-r1.apk root@192.168.1.1:/tmp/
+scp rjpa-1.0.1-r1.aarch64_cortex-a53.apk luci-rjpa-1.0.1-r1.apk root@192.168.1.1:/tmp/
 
 ssh root@192.168.1.1
 apk add luci-compat luci-lua-runtime             # 必须
 cd /tmp
 # 本地包没有用路由器的信任密钥签名，所以要加 --allow-untrusted
-apk add --allow-untrusted ./ruijie-1.0.1-r1.aarch64_cortex-a53.apk ./luci-app-ruijie-1.0.1-r1.apk
+apk add --allow-untrusted ./rjpa-1.0.1-r1.aarch64_cortex-a53.apk ./luci-rjpa-1.0.1-r1.apk
 /etc/init.d/uhttpd restart
 ```
 
@@ -162,9 +162,9 @@ apk add --allow-untrusted ./ruijie-1.0.1-r1.aarch64_cortex-a53.apk ./luci-app-ru
 不想用网页界面也能直接跑：
 
 ```sh
-ruijie -u 学号 -p 密码 -s auto -e     # 前台持久化在线
-ruijie -l                             # 列出认证页面提供的可选服务类型
-ruijie -h                             # 帮助
+rjpa -u 学号 -p 密码 -s auto -e     # 前台持久化在线
+rjpa -l                             # 列出认证页面提供的可选服务类型
+rjpa -h                             # 帮助
 ```
 
 | 参数 | 说明 |
@@ -213,8 +213,8 @@ rm -f /tmp/luci-indexcache*
 按顺序排查：
 
 ```sh
-/etc/init.d/ruijie status        # 服务在跑吗
-cat /var/log/ruijie.log          # 文件里有东西吗
+/etc/init.d/rjpa status        # 服务在跑吗
+cat /var/log/rjpa.log          # 文件里有东西吗
 ```
 
 服务没起来的常见原因：忘了勾「启用认证」，或者用户名/密码没填（这两种情况会拒绝启动）。
@@ -226,7 +226,7 @@ cat /var/log/ruijie.log          # 文件里有东西吗
 - 用 SSH 前台跑一遍，日志里会打印认证服务器返回的原文：
 
   ```sh
-  ruijie -u 学号 -p 密码 -s auto
+  rjpa -u 学号 -p 密码 -s auto
   ```
 
 **Q：还有别的问题？**
@@ -249,7 +249,7 @@ cat /var/log/ruijie.log          # 文件里有东西吗
 ```
 main.go              认证逻辑（Go，纯标准库、无 cgo、静态链接）
 openwrt/
-  Makefile           两个包：ruijie（后台服务）+ luci-app-ruijie（界面）
+  Makefile           两个包：rjpa（后台服务）+ luci-rjpa（界面）
   build-go.sh        交叉编译 Go 二进制
   build-ipk.sh       用 SDK 打成 .ipk / .apk
   files/             procd 服务脚本 + UCI 默认配置

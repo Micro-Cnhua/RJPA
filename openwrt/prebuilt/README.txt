@@ -1,14 +1,14 @@
 prebuilt/ 放交叉编译好的 Go 二进制，文件名必须和 OpenWrt 的 ARCH 对应：
 
-    ruijie-amd64                    x86_64
-    ruijie-386                      i386
-    ruijie-arm64                    aarch64   ← MT7981B / Filogic 820 用这个
-    ruijie-arm-v7 / -v6 / -v5       arm
-    ruijie-mipsle-softfloat         mipsel
-    ruijie-mips-softfloat           mips
-    ruijie-mips64le-softfloat       mips64el
-    ruijie-mips64-softfloat         mips64
-    ruijie-riscv64                  riscv64
+    rjpa-amd64                    x86_64
+    rjpa-386                      i386
+    rjpa-arm64                    aarch64   ← MT7981B / Filogic 820 用这个
+    rjpa-arm-v7 / -v6 / -v5       arm
+    rjpa-mipsle-softfloat         mipsel
+    rjpa-mips-softfloat           mips
+    rjpa-mips64le-softfloat       mips64el
+    rjpa-mips64-softfloat         mips64
+    rjpa-riscv64                  riscv64
 
 生成方法：两个脚本的目标命名完全一致，用哪个都行，产物可以混用。
 

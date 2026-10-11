@@ -1,20 +1,20 @@
 -- 锐捷校园网认证客户端 —— LuCI CBI 配置模型
 --
--- 对应 /etc/config/ruijie 里的 config ruijie 'main'
+-- 对应 /etc/config/rjpa 里的 config rjpa 'main'
 --
 -- 页面结构（从上到下）:
 --   1. SimpleSection → view/ruijie/status.htm   运行状态 + 服务类型检测
 --   2. TypedSection  → 认证 / 日志各项参数
 --   3. SimpleSection → view/ruijie/log.htm      连接日志框
 --
--- 服务类型的候选值不预置，只列出 `ruijie -l` 实际检测到的结果
--- （检测结果缓存在 /tmp/ruijie-services.cache，由控制器写入）。
+-- 服务类型的候选值不预置，只列出 `rjpa -l` 实际检测到的结果
+-- （检测结果缓存在 /tmp/rjpa-services.cache，由控制器写入）。
 
 local translate = require("luci.i18n").translate
 local fs        = require "nixio.fs"
 local uci       = require("luci.model.uci").cursor()
 
-local SVC_CACHE = "/tmp/ruijie-services.cache"
+local SVC_CACHE = "/tmp/rjpa-services.cache"
 
 -- 读控制器写下的检测缓存。第二个返回值区分
 -- 「检测过但没有结果」和「从来没检测过」。
@@ -39,14 +39,14 @@ end
 
 local m, s, o
 
-m = Map("ruijie", translate("锐捷校园网认证"),
+m = Map("rjpa", translate("锐捷校园网认证"),
 	translate("在路由器上自动完成校园网 eportal 认证。修改后请点击“保存并应用”，服务会立即重启。"))
 
 -- 顶部：运行状态 + 服务类型检测
-m:section(SimpleSection).template = "ruijie/status"
+m:section(SimpleSection).template = "rjpa/status"
 
 
-s = m:section(TypedSection, "ruijie", translate("认证设置"))
+s = m:section(TypedSection, "rjpa", translate("认证设置"))
 s.anonymous = true
 s.addremove = false
 
@@ -70,7 +70,7 @@ o.rmempty = false
 -- 只列出真实检测到的值；没检测过就只有一个「自动检测」，
 -- 并提示用户先去上面点「检测服务类型」。
 local services, detected = read_services()
-local current = uci:get("ruijie", "main", "service") or "auto"
+local current = uci:get("rjpa", "main", "service") or "auto"
 
 if detected then
 	o = s:option(ListValue, "service", translate("服务类型"),
@@ -115,8 +115,8 @@ o.default = "1"
 o.rmempty = false
 
 o = s:option(Value, "log_file", translate("日志文件"),
-	translate("默认 /var/log/ruijie.log（内存盘，重启清空，不磨损 flash）。想重启后保留可改成 /etc/ruijie.log"))
-o.default = "/var/log/ruijie.log"
+	translate("默认 /var/log/rjpa.log（内存盘，重启清空，不磨损 flash）。想重启后保留可改成 /etc/rjpa.log"))
+o.default = "/var/log/rjpa.log"
 o.datatype = "string"
 o.rmempty = false
 
@@ -128,6 +128,6 @@ o.rmempty = false
 
 
 -- 底部：连接日志
-m:section(SimpleSection).template = "ruijie/log"
+m:section(SimpleSection).template = "rjpa/log"
 
 return m

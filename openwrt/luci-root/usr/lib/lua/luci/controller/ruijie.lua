@@ -5,20 +5,20 @@
 --   luci-lua-runtime  提供 luci.http / luci.sys / luci.template / nixio
 --
 -- 界面只有一页「基本设置」: 认证参数 + 运行状态 + 连接日志。
--- 服务类型不预置候选值，而是跑 `ruijie -l` 实际检测后缓存，
+-- 服务类型不预置候选值，而是跑 `rjpa -l` 实际检测后缓存，
 -- 由 CBI 模型读缓存填进下拉框（见 model/cbi/ruijie/config.lua）。
 
 module("luci.controller.ruijie", package.seeall)
 
 local fs = require "nixio.fs"
 
-local CONFIG      = "ruijie"
+local CONFIG      = "rjpa"
 local SECTION     = "main"
-local DEFAULT_LOG = "/var/log/ruijie.log"
+local DEFAULT_LOG = "/var/log/rjpa.log"
 
 -- 服务类型检测的中间文件，都放内存盘，重启即清
-local SVC_RAW     = "/tmp/ruijie-svclist.raw"
-local SVC_CACHE   = "/tmp/ruijie-services.cache"
+local SVC_RAW     = "/tmp/rjpa-svclist.raw"
+local SVC_CACHE   = "/tmp/rjpa-services.cache"
 local SVC_DONE    = "===DONE==="
 
 
@@ -48,7 +48,7 @@ local function json_escape(s)
 end
 
 
--- 解析 `ruijie -l` 的输出。程序打印的格式是:
+-- 解析 `rjpa -l` 的输出。程序打印的格式是:
 --   认证页面提供的可选服务类型:
 --     default              学校_学生
 --     Teacher              学校_教师
@@ -114,24 +114,24 @@ end
 
 
 function index()
-	entry({"admin", "network", "ruijie"},
-		alias("admin", "network", "ruijie", "config"),
+	entry({"admin", "network", "rjpa"},
+		alias("admin", "network", "rjpa", "config"),
 		_("锐捷认证"), 60)
 
-	entry({"admin", "network", "ruijie", "config"},
-		cbi("ruijie/config"), _("基本设置"), 10)
+	entry({"admin", "network", "rjpa", "config"},
+		cbi("rjpa/config"), _("基本设置"), 10)
 
 	-- 下面是给页面里 AJAX 调用的接口，leaf = true 表示不在菜单里显示
-	entry({"admin", "network", "ruijie", "logdata"},
+	entry({"admin", "network", "rjpa", "logdata"},
 		call("action_logdata")).leaf = true
 
-	entry({"admin", "network", "ruijie", "logclear"},
+	entry({"admin", "network", "rjpa", "logclear"},
 		call("action_logclear")).leaf = true
 
-	entry({"admin", "network", "ruijie", "svcstart"},
+	entry({"admin", "network", "rjpa", "svcstart"},
 		call("action_svcstart")).leaf = true
 
-	entry({"admin", "network", "ruijie", "svcdata"},
+	entry({"admin", "network", "rjpa", "svcdata"},
 		call("action_svcdata")).leaf = true
 end
 
@@ -197,7 +197,7 @@ function action_logclear()
 end
 
 
--- 启动 `ruijie -l`。它要先探测网关，最坏几十秒，所以放后台跑，
+-- 启动 `rjpa -l`。它要先探测网关，最坏几十秒，所以放后台跑，
 -- 页面再轮询 svcdata 取结果，避免 HTTP 请求被卡到超时。
 function action_svcstart()
 	local http = require "luci.http"
@@ -206,7 +206,7 @@ function action_svcstart()
 	os.remove(SVC_RAW)
 	os.remove(SVC_CACHE)
 
-	sys.call("( /usr/bin/ruijie -l >" .. SVC_RAW .. " 2>&1; echo " ..
+	sys.call("( /usr/bin/rjpa -l >" .. SVC_RAW .. " 2>&1; echo " ..
 		SVC_DONE .. " >>" .. SVC_RAW .. " ) >/dev/null 2>&1 &")
 
 	http.prepare_content("application/json")

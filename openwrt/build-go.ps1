@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     为 OpenWrt / ImmortalWrt 交叉编译锐捷校园网认证客户端。
@@ -7,7 +7,7 @@
     main.go 只用了 Go 标准库，所以 CGO_ENABLED=0 的纯 Go 交叉编译就够了，
     既不需要 OpenWrt 工具链，也不需要 WSL。
 
-    产物写到 openwrt\prebuilt\ruijie-<目标>，供 Makefile 打包成 .ipk。
+    产物写到 openwrt\prebuilt\rjpa-<目标>，供 Makefile 打包成 .ipk。
     编译完会读一下 ELF 头，确认架构真的是你要的那个
     （"编错架构" 是这类包最常见的坑）。
 
@@ -139,7 +139,7 @@ $cfg      = $Targets[$Target]
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $Source   = Join-Path $RepoRoot 'main.go'
 $OutDir   = Join-Path $PSScriptRoot 'prebuilt'
-$OutFile  = Join-Path $OutDir "ruijie-$Target"
+$OutFile  = Join-Path $OutDir "rjpa-$Target"
 
 if (-not (Test-Path $Source)) {
     Write-Host "找不到源文件: $Source" -ForegroundColor Red

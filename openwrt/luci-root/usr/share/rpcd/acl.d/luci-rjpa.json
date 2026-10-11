@@ -1,11 +1,11 @@
 {
-	"luci-app-ruijie": {
+	"luci-rjpa": {
 		"description": "LuCI support for the Ruijie campus network client",
 		"read": {
-			"uci": [ "ruijie" ]
+			"uci": [ "rjpa" ]
 		},
 		"write": {
-			"uci": [ "ruijie" ]
+			"uci": [ "rjpa" ]
 		}
 	}
 }

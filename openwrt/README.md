@@ -8,7 +8,7 @@ ImmortalWrt 24.10 上，在 LuCI 里配置账号密码、并实时查看连接�
 
 > **只想直接装上用？不用自己编译。**
 > 去 [Releases](../../releases) 下载和你路由器**架构**对应的
-> `ruijie_*.ipk`，加上共用的 `luci-app-ruijie_*.ipk` 就能装。
+> `rjpa_*.ipk`，加上共用的 `luci-rjpa_*.ipk` 就能装。
 > 怎么查自己的架构、以及为什么不需要按型号编译，见
 > [第 12 节：别人（不同型号）怎么编译](#12-别人不同型号怎么编译)。
 
@@ -62,16 +62,16 @@ SDK 只负责把文件打成 `.ipk`。所以整条链路（编译 + 打包）都
 
 ```
 openwrt/
-├── Makefile                     # 包定义：ruijie + luci-app-ruijie
+├── Makefile                     # 包定义：rjpa + luci-rjpa
 ├── build-go.sh                  # 【Linux】交叉编译 Go 二进制
 ├── build-go.ps1                 # 【Windows】同上（目标命名完全一致）
 ├── build-ipk.sh                 # 用 SDK 打成 .ipk / .apk（取决于 SDK 是哪一代）
 ├── prebuilt/                    # Go 二进制产物（Makefile 按 ARCH 自动挑）
 ├── dist/                        # 打好的包输出到这里（脚本生成）
-├── files/                       # → 装进 ruijie 包（后台服务，不依赖 LuCI）
-│   ├── etc/config/ruijie        #   UCI 默认配置
-│   └── etc/init.d/ruijie        #   procd 服务脚本
-└── luci-root/                   # → 装进 luci-app-ruijie 包（Lua 界面）
+├── files/                       # → 装进 rjpa 包（后台服务，不依赖 LuCI）
+│   ├── etc/config/rjpa        #   UCI 默认配置
+│   └── etc/init.d/rjpa        #   procd 服务脚本
+└── luci-root/                   # → 装进 luci-rjpa 包（Lua 界面）
     └── usr/
         ├── lib/lua/luci/
         │   ├── controller/ruijie.lua            # 菜单 + AJAX 接口（日志 / 服务类型检测）
@@ -79,12 +79,12 @@ openwrt/
         │   └── view/ruijie/
         │       ├── status.htm                   # 运行状态 + 服务类型检测按钮
         │       └── log.htm                      # 连接日志框（嵌在基本设置页底部）
-        └── share/rpcd/acl.d/luci-app-ruijie.json # 权限声明
+        └── share/rpcd/acl.d/luci-rjpa.json # 权限声明
 ```
 
-拆成两个包是故意的：`ruijie` 是纯后台服务（不依赖 LuCI），
-`luci-app-ruijie` 是界面（`PKGARCH:=all`，与架构无关）。
-`luci-app-ruijie` 通过 `DEPENDS` 自动拉 `ruijie` 和 LuCI Lua 依赖。
+拆成两个包是故意的：`rjpa` 是纯后台服务（不依赖 LuCI），
+`luci-rjpa` 是界面（`PKGARCH:=all`，与架构无关）。
+`luci-rjpa` 通过 `DEPENDS` 自动拉 `rjpa` 和 LuCI Lua 依赖。
 
 ---
 
@@ -165,8 +165,8 @@ ls
 如果要把项目拷到本地磁盘，也就一行：
 
 ```sh
-cp -a /mnt/hgfs/Sync/个人/校园网/NewProgress/openwrt ~/ruijie-pkg
-cd ~/ruijie-pkg
+cp -a /mnt/hgfs/Sync/个人/校园网/NewProgress/openwrt ~/rjpa-pkg
+cd ~/rjpa-pkg
 ```
 
 ---
@@ -185,7 +185,7 @@ chmod +x build-go.sh build-ipk.sh
 ```
 目标      : arm64  (aarch64：mediatek/filogic、qualcommax/ipq807x)
 GOOS/ARCH : linux/arm64
-输出      : /home/you/openwrt/prebuilt/ruijie-arm64
+输出      : /home/you/openwrt/prebuilt/rjpa-arm64
 
 编译完成
   文件大小 : 6422688 bytes (6.1 MB)
@@ -194,7 +194,7 @@ GOOS/ARCH : linux/arm64
 
 脚本做的事：导出 `GOOS=linux` / `GOARCH=arm64` / `CGO_ENABLED=0`
 （MIPS 会带 `GOMIPS=softfloat`，ARM 带 `GOARM`），用
-`-trimpath -ldflags "-s -w"` 编译，产物写到 `prebuilt/ruijie-<目标>`。
+`-trimpath -ldflags "-s -w"` 编译，产物写到 `prebuilt/rjpa-<目标>`。
 
 最后那行**架构校验是特意加的**——"给路由器编错架构"是这类包最常见的翻车点，
 二进制传上去只会报 `Exec format error`。看到架构不对就换目标重编。
@@ -234,12 +234,12 @@ ls -d ~/sdk/immortalwrt-sdk-*
 ### 5.2 打包
 
 ```sh
-cd ~/ruijie-pkg            # 或你放 openwrt 目录的地方
+cd ~/rjpa-pkg            # 或你放 openwrt 目录的地方
 ./build-ipk.sh ~/sdk/immortalwrt-sdk-24.10.6-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64
 ```
 
-脚本流程：把包源码同步到 `<SDK>/package/ruijie` → `make defconfig`
-→ `make package/ruijie/compile V=s` → 找出产物并拷到本目录 `dist/`。
+脚本流程：把包源码同步到 `<SDK>/package/rjpa` → `make defconfig`
+→ `make package/rjpa/compile V=s` → 找出产物并拷到本目录 `dist/`。
 
 用 **24.10.x 的 SDK** 出 `.ipk`，用 **25.12.x 的 SDK** 出 `.apk`。脚本按 SDK 实际产出
 哪种就收哪种，不用改参数。
@@ -248,8 +248,8 @@ cd ~/ruijie-pkg            # 或你放 openwrt 目录的地方
 **不会产出装不上的包**：
 
 ```
-*** 找不到 Go 二进制: /home/you/sdk/.../package/ruijie/prebuilt/ruijie-arm64
-*** 当前 OpenWrt ARCH = aarch64，需要文件 ruijie-arm64
+*** 找不到 Go 二进制: /home/you/sdk/.../package/rjpa/prebuilt/rjpa-arm64
+*** 当前 OpenWrt ARCH = aarch64，需要文件 rjpa-arm64
 *** 请先编译:  ./build-go.sh arm64          (Linux)
 ***     或:    .\build-go.ps1 -Target arm64  (Windows)
 ```
@@ -259,25 +259,25 @@ cd ~/ruijie-pkg            # 或你放 openwrt 目录的地方
 用 **24.10.x 的 SDK** 时：
 
 ```
-dist/ruijie_1.0.0-1_aarch64_cortex-a53.ipk
-dist/luci-app-ruijie_1.0.0-1_all.ipk
+dist/rjpa_1.0.0-1_aarch64_cortex-a53.ipk
+dist/luci-rjpa_1.0.0-1_all.ipk
 ```
 
 用 **25.12.x 的 SDK** 时（注意 apk 文件名里**不带架构**）：
 
 ```
-dist/ruijie-1.0.0-r1.apk
-dist/luci-app-ruijie-1.0.0-r1.apk
+dist/rjpa-1.0.0-r1.apk
+dist/luci-rjpa-1.0.0-r1.apk
 ```
 
 > ⚠️ apk 的文件名不带架构，所以**要为多个架构各出一份时得自己补架构后缀**，
 > 否则同名会冲突。CI 里已经自动做了这件事，产物形如
-> `ruijie-1.0.0-r1.aarch64_cortex-a53.apk`。
+> `rjpa-1.0.0-r1.aarch64_cortex-a53.apk`。
 > 手动只编一个架构时无所谓——反正只有一份。
 
 第一次编译 SDK 里的依赖索引要几十秒，之后重编就很快了（十几秒）。
-脚本一次会把 `ruijie` 和 `luci-app-ruijie` 两个包都编出来——
-`ruijie` 包只是拷一个二进制进去，几乎不额外耗时。
+脚本一次会把 `rjpa` 和 `luci-rjpa` 两个包都编出来——
+`rjpa` 包只是拷一个二进制进去，几乎不额外耗时。
 
 ```sh
 ./build-ipk.sh ~/sdk/immortalwrt-sdk-24.10.6-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64
@@ -304,7 +304,7 @@ opkg update
 opkg install luci-compat luci-lua-runtime
 
 cd /tmp
-opkg install ./ruijie_*.ipk ./luci-app-ruijie_*.ipk
+opkg install ./rjpa_*.ipk ./luci-rjpa_*.ipk
 
 # 让新菜单立刻出现
 /etc/init.d/uhttpd restart
@@ -321,7 +321,7 @@ apk add luci-compat luci-lua-runtime
 
 cd /tmp
 # 本地包没有用路由器的信任密钥签名，所以要加 --allow-untrusted
-apk add --allow-untrusted ./ruijie-*.apk ./luci-app-ruijie-*.apk
+apk add --allow-untrusted ./rjpa-*.apk ./luci-rjpa-*.apk
 
 /etc/init.d/uhttpd restart
 rm -f /tmp/luci-indexcache*
@@ -389,7 +389,7 @@ done
 
 下面是 **检测服务类型** 按钮：
 
-- 点它会让客户端在后台执行 `ruijie -l`，去认证页面上抓取真实的可选服务类型
+- 点它会让客户端在后台执行 `rjpa -l`，去认证页面上抓取真实的可选服务类型
 - 因为要先探测网关，通常要几秒到几十秒；页面每 1.5 秒轮询一次进度
 - **检测完成后，“服务类型”下拉框的候选值会自动更新，不需要刷新页面**
 - 抓到的原始输出会显示在按钮下方（万一解析失败，你能直接看到原因）
@@ -423,24 +423,24 @@ done
 
 ```
 基本设置页底部的日志框（view/ruijie/log.htm）
-   │  XHR → /admin/network/ruijie/logdata
+   │  XHR → /admin/network/rjpa/logdata
    ▼
 controller/ruijie.lua  action_logdata()
    │  用 nixio.fs 读文件（不经过 shell，没有注入风险）
    ▼
-/var/log/ruijie.log
+/var/log/rjpa.log
    ▲
-   │  init.d 里: procd_set_param command /bin/sh -c "exec /usr/bin/ruijie ... >>日志 2>&1"
+   │  init.d 里: procd_set_param command /bin/sh -c "exec /usr/bin/rjpa ... >>日志 2>&1"
    │
-ruijie 进程的 stdout / stderr
+rjpa 进程的 stdout / stderr
 ```
 
 几个刻意的设计：
 
 - **日志走文件而不是 logd**：文件可控、好过滤，也不会和一堆系统日志混在一起。
   代价是没有时间戳（见第 10.1 节）。
-- **`exec`**：`sh -c "exec ..."` 让 shell 把自己替换成 ruijie，这样 procd 跟踪到
-  的就是 ruijie 自己的 PID，停止/重启发信号能正确送到，respawn 也正常。
+- **`exec`**：`sh -c "exec ..."` 让 shell 把自己替换成 rjpa，这样 procd 跟踪到
+  的就是 rjpa 自己的 PID，停止/重启发信号能正确送到，respawn 也正常。
 - **密码不做命令拼接**：`shell_quote()` 会把用户名/密码包成 shell 单引号字面量。
   密码里如果有空格、`$`、`;`、`'`，直接拼字符串会被 shell 解释甚至造成命令注入。
 - **密码不进系统日志**：启动时只记 `用户=... 服务=... 持久化=...`，不记密码。
@@ -484,12 +484,12 @@ sudo apt install -y make gcc
 SDK 别放共享文件夹。把 SDK 移到虚拟机本地磁盘（`~/sdk`）再打包。
 项目源码本身可以留在共享文件夹里。
 
-**Q: `make package/ruijie/compile` 报找不到包**
+**Q: `make package/rjpa/compile` 报找不到包**
 
 确认 `build-ipk.sh` 真的把源码拷进去了：
 
 ```sh
-ls ~/sdk/immortalwrt-sdk-*/package/ruijie/
+ls ~/sdk/immortalwrt-sdk-*/package/rjpa/
 ```
 
 **Q: 想确认包里的文件都对不对**
@@ -500,7 +500,7 @@ ls ~/sdk/immortalwrt-sdk-*/package/ruijie/
 
 ```sh
 cd /tmp
-ar x ~/ruijie-pkg/dist/ruijie_1.0.0-1_*.ipk
+ar x ~/rjpa-pkg/dist/rjpa_1.0.0-1_*.ipk
 tar tzf data.tar.gz                    # 看装了哪些文件
 tar xzOf control.tar.gz ./control      # 看依赖关系
 ```
@@ -509,15 +509,15 @@ tar xzOf control.tar.gz ./control      # 看依赖关系
 
 ```sh
 cd /tmp
-tar tzf ~/ruijie-pkg/dist/ruijie-1.0.0-r1.*.apk            # 看装了哪些文件
-tar xzOf ~/ruijie-pkg/dist/ruijie-1.0.0-r1.*.apk .PKGINFO  # 看元数据（相当于 ipk 的 control）
+tar tzf ~/rjpa-pkg/dist/rjpa-1.0.0-r1.*.apk            # 看装了哪些文件
+tar xzOf ~/rjpa-pkg/dist/rjpa-1.0.0-r1.*.apk .PKGINFO  # 看元数据（相当于 ipk 的 control）
 ```
 
 ### 路由器阶段
 
 **Q: 菜单里找不到"锐捷认证"**
 
-1. 确认 `luci-app-ruijie` 真装上了：`opkg list-installed | grep ruijie`
+1. 确认 `luci-rjpa` 真装上了：`opkg list-installed | grep rjpa`
 2. 确认 Lua 支持在：`opkg list-installed | grep luci-compat`。
    缺了就回到第 6 步装 `luci-compat` + `luci-lua-runtime`——
    **这是最常见的原因**，24.10 默认镜像是 JS 版 LuCI，没有这两个包时
@@ -535,10 +535,10 @@ tar xzOf ~/ruijie-pkg/dist/ruijie-1.0.0-r1.*.apk .PKGINFO  # 看元数据（相�
 按顺序排查：
 
 ```sh
-/etc/init.d/ruijie status          # 服务在跑吗
-cat /var/log/ruijie.log            # 文件里有东西吗
-logread | grep ruijie | tail -20   # 系统日志里有没有启停记录
-/usr/bin/ruijie -u 学号 -p 密码 -s auto   # 手动前台跑一遍看报什么错
+/etc/init.d/rjpa status          # 服务在跑吗
+cat /var/log/rjpa.log            # 文件里有东西吗
+logread | grep rjpa | tail -20   # 系统日志里有没有启停记录
+/usr/bin/rjpa -u 学号 -p 密码 -s auto   # 手动前台跑一遍看报什么错
 ```
 
 服务没起来的常见原因：没勾"启用认证"、用户名/密码为空
@@ -559,14 +559,14 @@ http://172.17.211.2/eportal/index.jsp?wlanuserip=10.x.x.x&wlanacname=...&nasip=.
 
 **Q: 认证失败 / 一直连不上**
 
-- 先确认"服务类型"对不对——点页面顶部的"检测服务类型"按钮，或在 SSH 里跑 `ruijie -l`
+- 先确认"服务类型"对不对——点页面顶部的"检测服务类型"按钮，或在 SSH 里跑 `rjpa -l`
 - 确认账号密码没写错（密码字段是 `password` 类型，保存后不会明文回显，
   但 **LuCI 会把密码读回输入框**，所以你看到的星号是浏览器行为，不是没存上）
 - 手动前台跑一遍，日志里的 `响应内容:` 就是认证服务器返回的原文
 
 **Q: 服务类型下拉框里只有"自动检测"一项**
 
-说明还没检测过（缓存 `/tmp/ruijie-services.cache` 不存在），或者路由器重启过
+说明还没检测过（缓存 `/tmp/rjpa-services.cache` 不存在），或者路由器重启过
 （这份缓存在内存盘，重启即清）。点页面顶部的 **检测服务类型** 按钮跑一次即可。
 
 已经保存进 UCI 的服务类型不会丢——CBI 会把它以"（当前已保存）"的形式加进候选列表，
@@ -578,7 +578,7 @@ http://172.17.211.2/eportal/index.jsp?wlanuserip=10.x.x.x&wlanacname=...&nasip=.
 
 - 输出里是 `未能从认证页面解析到服务类型` → 认证页面是动态加载的，抓不到。
   可以先用 SSH 手动试出正确的值，再在"手动认证地址"里填完整认证地址后重试检测。
-- 输出里明明有服务类型却没被解析出来 → 说明 `ruijie -l` 的输出格式变了。
+- 输出里明明有服务类型却没被解析出来 → 说明 `rjpa -l` 的输出格式变了。
   解析规则在 `controller/ruijie.lua` 的 `parse_services()`，
   认的是「表头行 + 缩进两列」这种格式，改它即可。
 
@@ -590,13 +590,13 @@ http://172.17.211.2/eportal/index.jsp?wlanuserip=10.x.x.x&wlanacname=...&nasip=.
 - **用 UPX 压缩**（在 Ubuntu 里压，路由器不需要装 UPX）：
   ```sh
   sudo apt install -y upx-ucl
-  upx --best --lzma prebuilt/ruijie-arm64
+  upx --best --lzma prebuilt/rjpa-arm64
   ```
   一般能压到原来的 1/3 左右，压出来还是可执行文件、自解压运行。
   但 UPX 偶尔会和 Go 运行时打架，压完**务必先在路由器上手工跑一遍**
-  （`/usr/bin/ruijie -l`）确认没问题再打包。
+  （`/usr/bin/rjpa -l`）确认没问题再打包。
 - 挂 U 盘做 extroot，把 overlay 挪到大容量存储上
-- 或者二进制单独放 U 盘：`ln -s /mnt/sda1/ruijie /usr/bin/ruijie`
+- 或者二进制单独放 U 盘：`ln -s /mnt/sda1/rjpa /usr/bin/rjpa`
 
 ---
 
@@ -617,11 +617,11 @@ init 脚本不用动——`log` 默认写到 stderr，而 stderr 已经重定向
 
 ### 10.2 日志持久化 + 定时轮转
 
-想让日志重启后还在，把"日志文件"改成 `/etc/ruijie.log`，
+想让日志重启后还在，把"日志文件"改成 `/etc/rjpa.log`，
 再把"日志上限"调小（比如 128KB），并加一条每天截断的定时任务：
 
 ```sh
-echo '0 4 * * * tail -n 500 /etc/ruijie.log > /etc/ruijie.log.tmp && mv /etc/ruijie.log.tmp /etc/ruijie.log' \
+echo '0 4 * * * tail -n 500 /etc/rjpa.log > /etc/rjpa.log.tmp && mv /etc/rjpa.log.tmp /etc/rjpa.log' \
     >> /etc/crontabs/root
 /etc/init.d/cron restart
 ```
@@ -631,8 +631,8 @@ echo '0 4 * * * tail -n 500 /etc/ruijie.log > /etc/ruijie.log.tmp && mv /etc/rui
 ### 10.3 开机自启确认
 
 ```sh
-/etc/init.d/ruijie enable      # 勾"启用认证"并保存后其实已经做了
-/etc/init.d/ruijie status
+/etc/init.d/rjpa enable      # 勾"启用认证"并保存后其实已经做了
+/etc/init.d/rjpa status
 ```
 
 ---
@@ -646,15 +646,15 @@ echo '0 4 * * * tail -n 500 /etc/ruijie.log > /etc/ruijie.log.tmp && mv /etc/rui
 ```sh
 # 在 Ubuntu 里
 cd openwrt
-scp prebuilt/ruijie-arm64           root@192.168.1.1:/usr/bin/ruijie
-scp files/etc/config/ruijie         root@192.168.1.1:/etc/config/ruijie
-scp files/etc/init.d/ruijie         root@192.168.1.1:/etc/init.d/ruijie
+scp prebuilt/rjpa-arm64           root@192.168.1.1:/usr/bin/rjpa
+scp files/etc/config/rjpa         root@192.168.1.1:/etc/config/rjpa
+scp files/etc/init.d/rjpa         root@192.168.1.1:/etc/init.d/rjpa
 
 ssh root@192.168.1.1
 opkg install luci-compat luci-lua-runtime
-mkdir -p /usr/lib/lua/luci/{controller,model/cbi/ruijie,view/ruijie} /usr/share/rpcd/acl.d
-chmod +x /usr/bin/ruijie /etc/init.d/ruijie
-/etc/init.d/ruijie enable
+mkdir -p /usr/lib/lua/luci/{controller,model/cbi/rjpa,view/rjpa} /usr/share/rpcd/acl.d
+chmod +x /usr/bin/rjpa /etc/init.d/rjpa
+/etc/init.d/rjpa enable
 ```
 
 再从 `openwrt/luci-root/usr/...` 对应位置把 5 个 lua/htm 文件 + acl.json
@@ -716,23 +716,23 @@ cd openwrt
 # 例如输出 24.10.6 | aarch64_cortex-a53
 
 # 2. 按版本挑格式、按架构挑文件
-#    24.10.x  →  ruijie_1.0.0-1_aarch64_cortex-a53.ipk
-#    25.12.x  →  ruijie-1.0.0-r1.aarch64_cortex-a53.apk
-#    两种都要  →  luci-app-ruijie_1.0.0-1_all.ipk
-#                luci-app-ruijie-1.0.0-r1.apk        （架构无关，各自一份）
+#    24.10.x  →  rjpa_1.0.0-1_aarch64_cortex-a53.ipk
+#    25.12.x  →  rjpa-1.0.0-r1.aarch64_cortex-a53.apk
+#    两种都要  →  luci-rjpa_1.0.0-1_all.ipk
+#                luci-rjpa-1.0.0-r1.apk        （架构无关，各自一份）
 
 # 3. 24.10 及更早
-scp ruijie_*.ipk luci-app-ruijie_*.ipk root@192.168.1.1:/tmp/
+scp rjpa_*.ipk luci-rjpa_*.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1
 opkg update && opkg install luci-compat luci-lua-runtime
-cd /tmp && opkg install ./ruijie_*.ipk ./luci-app-ruijie_*.ipk
+cd /tmp && opkg install ./rjpa_*.ipk ./luci-rjpa_*.ipk
 /etc/init.d/uhttpd restart
 
 # 4. 25.12 及以后
-scp ruijie-*.apk luci-app-ruijie-*.apk root@192.168.1.1:/tmp/
+scp rjpa-*.apk luci-rjpa-*.apk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1
 apk add luci-compat luci-lua-runtime
-cd /tmp && apk add --allow-untrusted ./ruijie-*.apk ./luci-app-ruijie-*.apk
+cd /tmp && apk add --allow-untrusted ./rjpa-*.apk ./luci-rjpa-*.apk
 /etc/init.d/uhttpd restart
 ```
 
@@ -790,7 +790,7 @@ cd openwrt
   也不影响其他组合
 - 想缩短 CI 时间，把 `target` 列表裁到只留你关心的架构即可
 
-架构无关的 `luci-app-ruijie_*_all.ipk` / `luci-app-ruijie-*.apk` 每个 job 都会产出一份，
+架构无关的 `luci-rjpa_*_all.ipk` / `luci-rjpa-*.apk` 每个 job 都会产出一份，
 发布时每种格式只取一份，不会重名冲突。
 
 ### 12.6 发布一个新版本

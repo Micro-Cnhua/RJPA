@@ -134,7 +134,7 @@ if [ ! -f "$SOURCE" ]; then
 fi
 
 mkdir -p "$OUT_DIR"
-OUT="$OUT_DIR/ruijie-$TARGET"
+OUT="$OUT_DIR/rjpa-$TARGET"
 
 echo
 echo "目标      : $TARGET  ($DESC)"

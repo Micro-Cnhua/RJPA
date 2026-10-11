@@ -8,8 +8,8 @@
 # 例（MT7981B / Filogic 820）:
 #   ./build-ipk.sh ~/sdk/immortalwrt-sdk-24.10.6-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64
 #
-# 说明: 一次会把 Makefile 里的两个包（ruijie + luci-app-ruijie）都编出来。
-#       ruijie 包只是拷一个二进制进去，几乎不额外耗时。
+# 说明: 一次会把 Makefile 里的两个包（rjpa + luci-rjpa）都编出来。
+#       rjpa 包只是拷一个二进制进去，几乎不额外耗时。
 #
 # 说明:
 #   Go 二进制要先用 build-go.sh 编好（放在 prebuilt/）。
@@ -75,16 +75,16 @@ fi
 
 # ------------------------------------------------------------------ 1. 检查二进制
 say "检查 prebuilt/ 里的 Go 二进制"
-if ! ls "$HERE"/prebuilt/ruijie-* >/dev/null 2>&1; then
-	echo "错误: prebuilt/ 里没有任何 ruijie-* 二进制。" >&2
+if ! ls "$HERE"/prebuilt/rjpa-* >/dev/null 2>&1; then
+	echo "错误: prebuilt/ 里没有任何 rjpa-* 二进制。" >&2
 	echo "      Linux:   ./build-go.sh           然后 ./build-go.sh <目标>" >&2
 	echo "      Windows: .\\build-go.ps1 -List    然后 .\\build-go.ps1 -Target <目标>" >&2
 	exit 1
 fi
-ls -l "$HERE"/prebuilt/ruijie-* | sed 's/^/    /'
+ls -l "$HERE"/prebuilt/rjpa-* | sed 's/^/    /'
 
 # ------------------------------------------------------------------ 2. 拷进 SDK
-DEST="$SDK/package/ruijie"
+DEST="$SDK/package/rjpa"
 say "同步包源码到 $DEST"
 rm -rf "$DEST"
 mkdir -p "$DEST"
@@ -93,7 +93,7 @@ mkdir -p "$DEST"
 #
 # 这里刻意不用 `tar -C "$HERE" . | tar -C "$DEST" -xf -` 这种整目录拷贝：
 # 如果 SDK 恰好解压在项目目录里面（例如 openwrt/sdk/），
-# 整目录拷贝会把 SDK 自己拷进 sdk/package/ruijie/ 里面，
+# 整目录拷贝会把 SDK 自己拷进 sdk/package/rjpa/ 里面，
 # 而那又在这棵树里 —— 无限递归，直到把磁盘写满。
 for item in Makefile files luci-root prebuilt; do
 	if [ ! -e "$HERE/$item" ]; then
@@ -109,7 +109,7 @@ cd "$SDK"
 # ------------------------------------------------------------------ 3. 生成 .config
 say "生成 SDK 配置 .config"
 echo "    首次运行约 30~90 秒，这期间屏幕上不会动，属正常现象，不要以为卡死了。"
-CONFIG_LOG="$SDK/tmp/ruijie-defconfig.log"
+CONFIG_LOG="$SDK/tmp/rjpa-defconfig.log"
 mkdir -p "$SDK/tmp"
 if ! make defconfig >"$CONFIG_LOG" 2>&1; then
 	echo "    defconfig 失败了，完整输出：$CONFIG_LOG" >&2
@@ -119,30 +119,43 @@ fi
 say "配置完成（日志: $CONFIG_LOG）"
 
 # ------------------------------------------------------------------ 4. 编译
-say "开始编译 package/ruijie"
+say "开始编译 package/rjpa"
 echo "    首次编译 SDK 要先跑一遍 prepare，约 2~10 分钟；之后再编同一个包只要十几秒。"
 echo "    下面会滚动大量输出（V=s），这是正常的。"
-make package/ruijie/compile V=s
+make package/rjpa/compile V=s
 say "编译结束"
 
 # ------------------------------------------------------------------ 5. 找产物
 # 同时收 opkg 的 .ipk 和 apk 的 .apk：
 # 24.10 的 SDK 出 .ipk，25.12 的 SDK 出 .apk，用哪套 SDK 就出哪种。
 PKG_FIND=(find "$SDK/bin" -type f \( \
-	-name 'ruijie_*.ipk' -o -name 'luci-app-ruijie_*.ipk' -o \
-	-name 'ruijie-*.apk' -o -name 'luci-app-ruijie-*.apk' \))
+	-name 'rjpa_*.ipk' -o -name 'luci-rjpa_*.ipk' -o \
+	-name 'rjpa-*.apk' -o -name 'luci-rjpa-*.apk' \))
 
 echo
 echo "==> 产物"
-FOUND=0
+CORE=0
+LUCI=0
 while IFS= read -r f; do
 	[ -n "$f" ] || continue
-	FOUND=1
+	case "$f" in
+		*/luci-rjpa[_-]*) LUCI=$((LUCI + 1)) ;;
+		*/rjpa[_-]*)      CORE=$((CORE + 1)) ;;
+	esac
 	echo "    $f"
 done < <("${PKG_FIND[@]}" 2>/dev/null | sort)
 
-if [ "$FOUND" -eq 0 ]; then
-	echo "    没有找到 .ipk / .apk，请检查上面的编译输出。" >&2
+# 两个包都必须产出。
+#
+# 之前只判断"找到了任何东西没有"，于是 luci-rjpa 因为依赖选不上、
+# 压根没被构建时，这个问题被静默吞掉了 —— 只编出一个包也算成功。
+if [ "$CORE" -eq 0 ] || [ "$LUCI" -eq 0 ]; then
+	echo "" >&2
+	echo "*** 产物不全: rjpa 包 $CORE 个, luci-rjpa 包 $LUCI 个，两个都必须有。" >&2
+	echo "*** SDK 里实际产出的包如下，便于定位:" >&2
+	find "$SDK/bin" -type f \( -name '*.ipk' -o -name '*.apk' \) 2>/dev/null | sed 's/^/      /' >&2
+	echo "*** 常见原因: LuCI 包的依赖在 SDK 里不存在，导致它没被构建。" >&2
+	echo "***           检查 Makefile 里 luci-compat / luci-lua-runtime 前面是不是带了 +" >&2
 	exit 1
 fi
 
@@ -156,11 +169,11 @@ echo "完成。把 dist/ 里的包传到路由器："
 echo
 echo "  24.10 及更早（opkg / .ipk）:"
 echo "    opkg install luci-compat luci-lua-runtime   # 首次需要，Lua 版 LuCI 支持"
-echo "    opkg install ./ruijie_*.ipk ./luci-app-ruijie_*.ipk"
+echo "    opkg install ./rjpa_*.ipk ./luci-rjpa_*.ipk"
 echo
 echo "  25.12 及以后（apk / .apk）:"
 echo "    apk add luci-compat luci-lua-runtime"
-echo "    apk add --allow-untrusted ./ruijie-*.apk ./luci-app-ruijie-*.apk"
+echo "    apk add --allow-untrusted ./rjpa-*.apk ./luci-rjpa-*.apk"
 echo
 echo "  装完都执行:"
 echo "    /etc/init.d/uhttpd restart"

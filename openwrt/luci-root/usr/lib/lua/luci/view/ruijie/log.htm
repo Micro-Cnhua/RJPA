@@ -7,13 +7,13 @@ local uci  = require("luci.model.uci").cursor()
 local disp = require "luci.dispatcher"
 local pcdata = require("luci.util").pcdata
 
-local logfile = uci:get("ruijie", "main", "log_file") or "/var/log/ruijie.log"
-local pid     = (sys.exec("pidof ruijie 2>/dev/null") or ""):gsub("%s+", "")
+local logfile = uci:get("rjpa", "main", "log_file") or "/var/log/rjpa.log"
+local pid     = (sys.exec("pidof rjpa 2>/dev/null") or ""):gsub("%s+", "")
 local running = (pid ~= "")
 local size    = fs.stat(logfile, "size") or 0
 
-local url_log   = disp.build_url("admin", "network", "ruijie", "logdata")
-local url_clear = disp.build_url("admin", "network", "ruijie", "logclear")
+local url_log   = disp.build_url("admin", "network", "rjpa", "logdata")
+local url_clear = disp.build_url("admin", "network", "rjpa", "logclear")
 -%>
 
 <div class="cbi-section">
@@ -27,20 +27,20 @@ local url_clear = disp.build_url("admin", "network", "ruijie", "logclear")
 
 	<div style="margin:10px 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
 		<span><%:显示行数%></span>
-		<input type="text" id="ruijie-lines" value="200" size="5" />
+		<input type="text" id="rjpa-lines" value="200" size="5" />
 
 		<span><%:关键字%></span>
-		<input type="text" id="ruijie-filter" value="" size="12" placeholder="认证" />
+		<input type="text" id="rjpa-filter" value="" size="12" placeholder="认证" />
 
-		<button type="button" id="ruijie-refresh" class="cbi-button cbi-button-apply"><%:刷新%></button>
-		<button type="button" id="ruijie-clear" class="cbi-button cbi-button-reset"><%:清空日志%></button>
+		<button type="button" id="rjpa-refresh" class="cbi-button cbi-button-apply"><%:刷新%></button>
+		<button type="button" id="rjpa-clear" class="cbi-button cbi-button-reset"><%:清空日志%></button>
 
 		<label style="margin-left:6px">
-			<input type="checkbox" id="ruijie-auto" checked="checked" />
+			<input type="checkbox" id="rjpa-auto" checked="checked" />
 			<%:自动刷新（5 秒）%>
 		</label>
 
-		<span id="ruijie-status" style="color:#888"></span>
+		<span id="rjpa-status" style="color:#888"></span>
 	</div>
 
 <% if not running then %>
@@ -49,7 +49,7 @@ local url_clear = disp.build_url("admin", "network", "ruijie", "logclear")
 	</div>
 <% end %>
 
-	<pre id="ruijie-log" style="margin:0;padding:10px;max-height:40vh;overflow:auto;background:#101418;color:#c8e6c9;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all;border-radius:3px">正在加载…</pre>
+	<pre id="rjpa-log" style="margin:0;padding:10px;max-height:40vh;overflow:auto;background:#101418;color:#c8e6c9;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all;border-radius:3px">正在加载…</pre>
 </div>
 
 <script type="text/javascript">
@@ -58,11 +58,11 @@ local url_clear = disp.build_url("admin", "network", "ruijie", "logclear")
 	var URL_LOG   = '<%=url_log%>';
 	var URL_CLEAR = '<%=url_clear%>';
 
-	var box      = document.getElementById('ruijie-log');
-	var statusEl = document.getElementById('ruijie-status');
-	var linesEl  = document.getElementById('ruijie-lines');
-	var filterEl = document.getElementById('ruijie-filter');
-	var autoEl   = document.getElementById('ruijie-auto');
+	var box      = document.getElementById('rjpa-log');
+	var statusEl = document.getElementById('rjpa-status');
+	var linesEl  = document.getElementById('rjpa-lines');
+	var filterEl = document.getElementById('rjpa-filter');
+	var autoEl   = document.getElementById('rjpa-auto');
 	var timer    = null;
 
 	function get(url, cb) {
@@ -119,9 +119,9 @@ local url_clear = disp.build_url("admin", "network", "ruijie", "logclear")
 		};
 	}
 
-	document.getElementById('ruijie-refresh').onclick = function() { load(); };
+	document.getElementById('rjpa-refresh').onclick = function() { load(); };
 
-	document.getElementById('ruijie-clear').onclick = function() {
+	document.getElementById('rjpa-clear').onclick = function() {
 		if (!confirm('确定清空连接日志？')) { return; }
 		get(URL_CLEAR, function() { load(); });
 	};

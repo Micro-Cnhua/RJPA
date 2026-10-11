@@ -1,5 +1,5 @@
 #
-# 锐捷校园网认证客户端 (ruijie) + LuCI (Lua) 应用
+# 锐捷校园网认证客户端 (rjpa) + LuCI (Lua) 应用
 #
 # 目标系统: ImmortalWrt 24.10 / OpenWrt 24.10  (opkg + .ipk)
 #
@@ -11,7 +11,7 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=ruijie
+PKG_NAME:=rjpa
 PKG_VERSION:=1.0.0
 PKG_RELEASE:=1
 
@@ -23,7 +23,7 @@ include $(INCLUDE_DIR)/package.mk
 # ---------------------------------------------------------------------------
 # OpenWrt $(ARCH) -> Go 交叉编译目标
 #
-# prebuilt/ 目录里的文件名必须和这里算出来的 $(RUIJIE_BIN) 一致。
+# prebuilt/ 目录里的文件名必须和这里算出来的 $(RJPA_BIN) 一致。
 # build-go.ps1 使用完全相同的命名规则。
 # ---------------------------------------------------------------------------
 GO_TARGET_ARCH :=
@@ -51,9 +51,9 @@ else ifeq ($(ARCH),aarch64)
 else ifeq ($(ARCH),riscv64)
   GO_TARGET_ARCH := riscv64
 else ifeq ($(ARCH),arm)
-  # 少数 armv6/armv5 设备需要用 RUIJIE_GOARM=6 / 5 覆盖
+  # 少数 armv6/armv5 设备需要用 RJPA_GOARM=6 / 5 覆盖
   GO_TARGET_ARCH := arm
-  GO_TARGET_ARM  := $(if $(RUIJIE_GOARM),$(RUIJIE_GOARM),7)
+  GO_TARGET_ARM  := $(if $(RJPA_GOARM),$(RJPA_GOARM),7)
 endif
 
 GO_SUFFIX := $(GO_TARGET_ARCH)
@@ -64,7 +64,7 @@ ifneq ($(GO_TARGET_ARM),)
   GO_SUFFIX := $(GO_SUFFIX)-v$(GO_TARGET_ARM)
 endif
 
-RUIJIE_BIN ?= $(CURDIR)/prebuilt/ruijie-$(GO_SUFFIX)
+RJPA_BIN ?= $(CURDIR)/prebuilt/rjpa-$(GO_SUFFIX)
 
 # ---------------------------------------------------------------------------
 # 这个包没有源码要编译：Go 二进制是提前交叉编译好、放进 prebuilt/ 的。
@@ -81,47 +81,47 @@ endef
 print-target:
 	@echo "OpenWrt ARCH = $(ARCH)"
 	@echo "Go 目标      = $(GO_SUFFIX)"
-	@echo "期望二进制   = $(RUIJIE_BIN)"
+	@echo "期望二进制   = $(RJPA_BIN)"
 
 # ===========================================================================
-# 包 1: ruijie  (纯后台服务，不依赖 LuCI)
+# 包 1: rjpa  (纯后台服务，不依赖 LuCI)
 # ===========================================================================
-define Package/ruijie
+define Package/rjpa
   SECTION:=net
   CATEGORY:=Network
   TITLE:=锐捷校园网 eportal 认证客户端
   URL:=https://github.com/
 endef
 
-define Package/ruijie/description
+define Package/rjpa/description
  锐捷 (eportal) 校园网自动认证客户端。支持自动探测认证地址、
  自动检测服务类型、断网自动重连，并提供 procd 服务与连接日志。
 endef
 
-define Package/ruijie/conffiles
-/etc/config/ruijie
+define Package/rjpa/conffiles
+/etc/config/rjpa
 endef
 
-define Package/ruijie/install
-	@if [ ! -f "$(RUIJIE_BIN)" ]; then \
+define Package/rjpa/install
+	@if [ ! -f "$(RJPA_BIN)" ]; then \
 		echo ""; \
-		echo "*** 找不到 Go 二进制: $(RUIJIE_BIN)"; \
-		echo "*** 当前 OpenWrt ARCH = $(ARCH)，需要文件 ruijie-$(GO_SUFFIX)"; \
+		echo "*** 找不到 Go 二进制: $(RJPA_BIN)"; \
+		echo "*** 当前 OpenWrt ARCH = $(ARCH)，需要文件 rjpa-$(GO_SUFFIX)"; \
 		echo "*** 请先编译:  ./build-go.sh $(GO_SUFFIX)           (Linux)"; \
 		echo "***     或:    .\\build-go.ps1 -Target $(GO_SUFFIX)   (Windows)"; \
 		echo ""; \
 		exit 1; \
 	fi
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(RUIJIE_BIN) $(1)/usr/bin/ruijie
+	$(INSTALL_BIN) $(RJPA_BIN) $(1)/usr/bin/rjpa
 	$(INSTALL_DIR) $(1)/etc/config
-	$(INSTALL_CONF) ./files/etc/config/ruijie $(1)/etc/config/ruijie
+	$(INSTALL_CONF) ./files/etc/config/rjpa $(1)/etc/config/rjpa
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/etc/init.d/ruijie $(1)/etc/init.d/ruijie
+	$(INSTALL_BIN) ./files/etc/init.d/rjpa $(1)/etc/init.d/rjpa
 endef
 
 # ===========================================================================
-# 包 2: luci-app-ruijie  (Lua 版 LuCI 界面)
+# 包 2: luci-rjpa  (Lua 版 LuCI 界面)
 #
 #   luci-compat        提供 luci.cbi / 旧版 Lua 界面兼容层（必须有）
 #   luci-lua-runtime   提供 luci.dispatcher / luci.template / lua / nixio
@@ -129,21 +129,29 @@ endef
 # 注意: 24.10 默认只装 JS 版 LuCI，这两个包通常需要额外安装，
 #       写进 DEPENDS 后 opkg 会自动拉取（前提是路由器能访问软件源）。
 # ===========================================================================
-define Package/luci-app-ruijie
+define Package/luci-rjpa
   SECTION:=luci
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=LuCI 支持 (锐捷校园网认证 / Lua)
   PKGARCH:=all
-  DEPENDS:=+ruijie +luci-compat +luci-lua-runtime
+  # 注意: luci-compat / luci-lua-runtime 前面**不能加 +**。
+  #
+  #   "+" 的含义不只是"运行时要它"，还包括"在 .config 里把它选上"。
+  #   而 SDK 里没有 luci feed，这两个包不存在 —— 选不上，于是 make defconfig
+  #   会把本包一起关掉，结果就是「只编出了 rjpa，没有 LuCI 包」。
+  #
+  #   写成不带 + 的纯运行期依赖，包名照样会写进 ipk / apk 的依赖字段，
+  #   路由器上安装时 opkg / apk 依然会要求先装它们。
+  DEPENDS:=+rjpa luci-compat luci-lua-runtime
 endef
 
-define Package/luci-app-ruijie/description
+define Package/luci-rjpa/description
  锐捷校园网认证客户端的 LuCI 界面（Lua 模板实现）：
  基本设置、服务类型检测、连接日志实时查看。
 endef
 
-define Package/luci-app-ruijie/install
+define Package/luci-rjpa/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
 	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/controller/ruijie.lua \
 		$(1)/usr/lib/lua/luci/controller/ruijie.lua
@@ -159,11 +167,11 @@ define Package/luci-app-ruijie/install
 		$(1)/usr/lib/lua/luci/view/ruijie/log.htm
 
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
-	$(INSTALL_DATA) ./luci-root/usr/share/rpcd/acl.d/luci-app-ruijie.json \
-		$(1)/usr/share/rpcd/acl.d/luci-app-ruijie.json
+	$(INSTALL_DATA) ./luci-root/usr/share/rpcd/acl.d/luci-rjpa.json \
+		$(1)/usr/share/rpcd/acl.d/luci-rjpa.json
 endef
 
-define Package/luci-app-ruijie/postinst
+define Package/luci-rjpa/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] || {
 	# 清掉 LuCI 菜单索引缓存，让新页面立刻出现在菜单里
@@ -173,5 +181,5 @@ define Package/luci-app-ruijie/postinst
 exit 0
 endef
 
-$(eval $(call BuildPackage,ruijie))
-$(eval $(call BuildPackage,luci-app-ruijie))
+$(eval $(call BuildPackage,rjpa))
+$(eval $(call BuildPackage,luci-rjpa))

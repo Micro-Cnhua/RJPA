@@ -1,5 +1,5 @@
 
-config ruijie 'main'
+config rjpa 'main'
 	# 是否开机自动启动认证服务
 	option enabled '0'
 
@@ -10,7 +10,7 @@ config ruijie 'main'
 	option password ''
 
 	# 服务类型: auto = 自动检测并取第一个；也可填 default / Teacher 等
-	# 先用 LuCI 的“服务类型检测”页面或命令行 `ruijie -l` 查看可选值
+	# 先用 LuCI 的“服务类型检测”页面或命令行 `rjpa -l` 查看可选值
 	option service 'auto'
 
 	# 手动指定完整认证地址，留空则自动探测
@@ -20,9 +20,9 @@ config ruijie 'main'
 	# 1 = 持久化在线（断网后每 10 秒自动重连），推荐开启
 	option persistent '1'
 
-	# 连接日志文件（/var/log 是内存盘，重启丢失；想持久保存可改成 /etc/ruijie.log，
+	# 连接日志文件（/var/log 是内存盘，重启丢失；想持久保存可改成 /etc/rjpa.log，
 	# 但要注意 flash 写入寿命，并适当调小 log_max_kb）
-	option log_file '/var/log/ruijie.log'
+	option log_file '/var/log/rjpa.log'
 
 	# 日志超过该大小(KB)时，自动只保留最后 2000 行
 	option log_max_kb '256'

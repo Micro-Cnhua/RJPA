@@ -6,14 +6,14 @@ local uci  = require("luci.model.uci").cursor()
 local disp = require "luci.dispatcher"
 local pcdata = require("luci.util").pcdata
 
-local enabled = uci:get("ruijie", "main", "enabled")
-local logfile = uci:get("ruijie", "main", "log_file") or "/var/log/ruijie.log"
-local pid     = (sys.exec("pidof ruijie 2>/dev/null") or ""):gsub("%s+", "")
+local enabled = uci:get("rjpa", "main", "enabled")
+local logfile = uci:get("rjpa", "main", "log_file") or "/var/log/rjpa.log"
+local pid     = (sys.exec("pidof rjpa 2>/dev/null") or ""):gsub("%s+", "")
 local running = (pid ~= "")
 local size    = fs.stat(logfile, "size") or 0
 
-local url_svcstart = disp.build_url("admin", "network", "ruijie", "svcstart")
-local url_svcdata  = disp.build_url("admin", "network", "ruijie", "svcdata")
+local url_svcstart = disp.build_url("admin", "network", "rjpa", "svcstart")
+local url_svcdata  = disp.build_url("admin", "network", "rjpa", "svcdata")
 -%>
 
 <div class="cbi-section">
@@ -55,11 +55,11 @@ local url_svcdata  = disp.build_url("admin", "network", "ruijie", "svcdata")
 	</div>
 
 	<div style="margin:10px 0;display:flex;align-items:center;flex-wrap:wrap;gap:10px">
-		<button type="button" id="ruijie-detect" class="cbi-button cbi-button-apply"><%:检测服务类型%></button>
-		<span id="ruijie-detect-status" style="color:#888"></span>
+		<button type="button" id="rjpa-detect" class="cbi-button cbi-button-apply"><%:检测服务类型%></button>
+		<span id="rjpa-detect-status" style="color:#888"></span>
 	</div>
 
-	<pre id="ruijie-detect-out" style="display:none;margin:0;padding:10px;max-height:30vh;overflow:auto;background:#101418;color:#c8e6c9;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all;border-radius:3px"></pre>
+	<pre id="rjpa-detect-out" style="display:none;margin:0;padding:10px;max-height:30vh;overflow:auto;background:#101418;color:#c8e6c9;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all;border-radius:3px"></pre>
 </div>
 
 <script type="text/javascript">
@@ -68,9 +68,9 @@ local url_svcdata  = disp.build_url("admin", "network", "ruijie", "svcdata")
 	var URL_START = '<%=url_svcstart%>';
 	var URL_DATA  = '<%=url_svcdata%>';
 
-	var btn      = document.getElementById('ruijie-detect');
-	var statusEl = document.getElementById('ruijie-detect-status');
-	var outEl    = document.getElementById('ruijie-detect-out');
+	var btn      = document.getElementById('rjpa-detect');
+	var statusEl = document.getElementById('rjpa-detect-status');
+	var outEl    = document.getElementById('rjpa-detect-out');
 	var timer    = null;
 	var waited   = 0;
 
@@ -83,7 +83,7 @@ local url_svcdata  = disp.build_url("admin", "network", "ruijie", "svcdata")
 		x.send(null);
 	}
 
-	// CBI 渲染出来的 name 是 cbid.ruijie.main.service，所以两种写法都试一下。
+	// CBI 渲染出来的 name 是 cbid.rjpa.main.service，所以两种写法都试一下。
 	// 注意: 这段脚本在页面上半部分，此时下拉框还没解析出来，必须延迟查找。
 	function serviceSelect() {
 		return document.querySelector('select[name$=".service"]') ||
