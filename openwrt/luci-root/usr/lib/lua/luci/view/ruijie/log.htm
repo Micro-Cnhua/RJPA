@@ -80,7 +80,7 @@ local url_clear = disp.build_url("admin", "network", "rjpa", "logclear")
 		return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 	}
 
-	// build_url() 有可能自带 ?token=...，所以不能无脑拼 '?'
+	
 	function addParams(url, qs) {
 		return url + (url.indexOf('?') >= 0 ? '&' : '?') + qs;
 	}
