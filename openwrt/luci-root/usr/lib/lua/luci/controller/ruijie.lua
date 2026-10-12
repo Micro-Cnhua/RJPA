@@ -116,7 +116,7 @@ end
 function index()
 	entry({"admin", "network", "rjpa"},
 		alias("admin", "network", "rjpa", "config"),
-		_("锐捷认证"), 60)
+		_("RJPA锐捷认证"), 60)
 
 	entry({"admin", "network", "rjpa", "config"},
 		-- ⚠️ 这里必须是 ruijie/config，不能跟着包名写成 rjpa 那一套。
