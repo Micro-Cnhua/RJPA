@@ -74,9 +74,9 @@ openwrt/
 └── luci-root/                   # → 装进 luci-rjpa 包（Lua 界面）
     └── usr/
         ├── lib/lua/luci/
-        │   ├── controller/ruijie.lua            # 菜单 + AJAX 接口（日志 / 服务类型检测）
-        │   ├── model/cbi/ruijie/config.lua      # 基本设置表单（服务类型动态填充）
-        │   └── view/ruijie/
+        │   ├── controller/rjpa.lua            # 菜单 + AJAX 接口（日志 / 服务类型检测）
+        │   ├── model/cbi/rjpa/config.lua      # 基本设置表单（服务类型动态填充）
+        │   └── view/rjpa/
         │       ├── status.htm                   # 运行状态 + 服务类型检测按钮
         │       └── log.htm                      # 连接日志框（嵌在基本设置页底部）
         └── share/rpcd/acl.d/luci-rjpa.json # 权限声明
@@ -381,7 +381,7 @@ done
 
 ## 7. 第五步：在 LuCI 里用
 
-刷新浏览器，左侧菜单 **网络 → 锐捷认证**。界面就**一页**，从上到下分三段：
+刷新浏览器，左侧菜单 **服务 → RJPA锐捷认证**。界面就**一页**，从上到下分三段：
 
 ### ① 运行状态 + 服务类型检测（页面顶部）
 
@@ -422,10 +422,10 @@ done
 ## 8. 日志是怎么串起来的
 
 ```
-基本设置页底部的日志框（view/ruijie/log.htm）
-   │  XHR → /admin/network/rjpa/logdata
+基本设置页底部的日志框（view/rjpa/log.htm）
+   │  XHR → /admin/services/rjpa/logdata
    ▼
-controller/ruijie.lua  action_logdata()
+controller/rjpa.lua  action_logdata()
    │  用 nixio.fs 读文件（不经过 shell，没有注入风险）
    ▼
 /var/log/rjpa.log
@@ -515,7 +515,7 @@ tar xzOf ~/rjpa-pkg/dist/rjpa-1.0.0-r1.*.apk .PKGINFO  # 看元数据（相当�
 
 ### 路由器阶段
 
-**Q: 菜单里找不到"锐捷认证"**
+**Q: 菜单里找不到"RJPA锐捷认证"**
 
 1. 确认 `luci-rjpa` 真装上了：`opkg list-installed | grep rjpa`
 2. 确认 Lua 支持在：`opkg list-installed | grep luci-compat`。
@@ -579,7 +579,7 @@ http://172.17.211.2/eportal/index.jsp?wlanuserip=10.x.x.x&wlanacname=...&nasip=.
 - 输出里是 `未能从认证页面解析到服务类型` → 认证页面是动态加载的，抓不到。
   可以先用 SSH 手动试出正确的值，再在"手动认证地址"里填完整认证地址后重试检测。
 - 输出里明明有服务类型却没被解析出来 → 说明 `rjpa -l` 的输出格式变了。
-  解析规则在 `controller/ruijie.lua` 的 `parse_services()`，
+  解析规则在 `controller/rjpa.lua` 的 `parse_services()`，
   认的是「表头行 + 缩进两列」这种格式，改它即可。
 
 **Q: 路由器 flash 不够**

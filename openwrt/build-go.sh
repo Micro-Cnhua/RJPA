@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 为 OpenWrt / ImmortalWrt 交叉编译锐捷认证客户端。
+# 为 OpenWrt / ImmortalWrt 交叉编译RJPA锐捷认证客户端。
 #
 # 三种用法:
 #   ./build-go.sh                        列出所有目标 + DISTRIB_ARCH 对照表

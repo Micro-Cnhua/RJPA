@@ -19,3 +19,7 @@ Thumbs.db
 
 # 说明: openwrt/prebuilt/README.txt 不匹配上面的规则，会被正常提交，
 #       用来在仓库里保留这个目录并说明文件命名规则。
+
+# 临时 / 已废弃，不要提交
+/NewLuci/
+/openwrt.zip

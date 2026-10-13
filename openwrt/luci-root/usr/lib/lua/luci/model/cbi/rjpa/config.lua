@@ -3,9 +3,9 @@
 -- 对应 /etc/config/rjpa 里的 config rjpa 'main'
 --
 -- 页面结构（从上到下）:
---   1. SimpleSection → view/ruijie/status.htm   运行状态 + 服务类型检测
+--   1. SimpleSection → view/rjpa/status.htm   运行状态 + 服务类型检测
 --   2. TypedSection  → 认证 / 日志各项参数
---   3. SimpleSection → view/ruijie/log.htm      连接日志框
+--   3. SimpleSection → view/rjpa/log.htm      连接日志框
 --
 -- 服务类型的候选值不预置，只列出 `rjpa -l` 实际检测到的结果
 -- （检测结果缓存在 /tmp/rjpa-services.cache，由控制器写入）。
@@ -43,8 +43,7 @@ m = Map("rjpa", translate("锐捷校园网认证"),
 	translate("在路由器上自动完成校园网 eportal 认证。修改后请点击“保存并应用”，服务会立即重启。"))
 
 -- 顶部：运行状态 + 服务类型检测
--- 路径写 ruijie 而不是 rjpa: 加载路径由磁盘文件名决定，见 Makefile 的 install 段
-m:section(SimpleSection).template = "ruijie/status"
+m:section(SimpleSection).template = "rjpa/status"
 
 
 s = m:section(TypedSection, "rjpa", translate("认证设置"))
@@ -129,7 +128,6 @@ o.rmempty = false
 
 
 -- 底部：连接日志
--- 同样: 视图路径是磁盘文件名，不是包名
-m:section(SimpleSection).template = "ruijie/log"
+m:section(SimpleSection).template = "rjpa/log"
 
 return m

@@ -12,8 +12,8 @@ local pid     = (sys.exec("pidof rjpa 2>/dev/null") or ""):gsub("%s+", "")
 local running = (pid ~= "")
 local size    = fs.stat(logfile, "size") or 0
 
-local url_svcstart = disp.build_url("admin", "network", "rjpa", "svcstart")
-local url_svcdata  = disp.build_url("admin", "network", "rjpa", "svcdata")
+local url_svcstart = disp.build_url("admin", "services", "rjpa", "svcstart")
+local url_svcdata  = disp.build_url("admin", "services", "rjpa", "svcdata")
 -%>
 
 <div class="cbi-section">

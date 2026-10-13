@@ -161,18 +161,18 @@ endef
 
 define Package/luci-rjpa/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
-	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/controller/ruijie.lua \
-		$(1)/usr/lib/lua/luci/controller/ruijie.lua
+	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/controller/rjpa.lua \
+		$(1)/usr/lib/lua/luci/controller/rjpa.lua
 
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi/ruijie
-	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/model/cbi/ruijie/config.lua \
-		$(1)/usr/lib/lua/luci/model/cbi/ruijie/config.lua
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi/rjpa
+	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/model/cbi/rjpa/config.lua \
+		$(1)/usr/lib/lua/luci/model/cbi/rjpa/config.lua
 
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/ruijie
-	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/view/ruijie/status.htm \
-		$(1)/usr/lib/lua/luci/view/ruijie/status.htm
-	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/view/ruijie/log.htm \
-		$(1)/usr/lib/lua/luci/view/ruijie/log.htm
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/rjpa
+	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/view/rjpa/status.htm \
+		$(1)/usr/lib/lua/luci/view/rjpa/status.htm
+	$(INSTALL_DATA) ./luci-root/usr/lib/lua/luci/view/rjpa/log.htm \
+		$(1)/usr/lib/lua/luci/view/rjpa/log.htm
 
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
 	$(INSTALL_DATA) ./luci-root/usr/share/rpcd/acl.d/luci-rjpa.json \

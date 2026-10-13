@@ -6,9 +6,9 @@
 --
 -- 界面只有一页「基本设置」: 认证参数 + 运行状态 + 连接日志。
 -- 服务类型不预置候选值，而是跑 `rjpa -l` 实际检测后缓存，
--- 由 CBI 模型读缓存填进下拉框（见 model/cbi/ruijie/config.lua）。
+-- 由 CBI 模型读缓存填进下拉框（见 model/cbi/rjpa/config.lua）。
 
-module("luci.controller.ruijie", package.seeall)
+module("luci.controller.rjpa", package.seeall)
 
 local fs = require "nixio.fs"
 
@@ -114,30 +114,24 @@ end
 
 
 function index()
-	entry({"admin", "network", "rjpa"},
-		alias("admin", "network", "rjpa", "config"),
+	entry({"admin", "services", "rjpa"},
+		alias("admin", "services", "rjpa", "config"),
 		_("RJPA锐捷认证"), 60)
 
-	entry({"admin", "network", "rjpa", "config"},
-		-- ⚠️ 这里必须是 ruijie/config，不能跟着包名写成 rjpa 那一套。
-		--
-		-- CBI 模型 / 视图的加载路径由**磁盘上的实际文件名**决定，而 LuCI
-		-- 那几个文件仍然叫 ruijie.lua / cbi/ruijie/ / view/ruijie/
-		-- （见 Makefile 的 install 段）。包名叫 luci-rjpa，和这个路径无关。
-		-- 若把 ruijie 误写成 rjpa，页面会报 "Model not found"。
-		cbi("ruijie/config"), _("基本设置"), 10)
+	entry({"admin", "services", "rjpa", "config"},
+		cbi("rjpa/config"), _("基本设置"), 10)
 
 	-- 下面是给页面里 AJAX 调用的接口，leaf = true 表示不在菜单里显示
-	entry({"admin", "network", "rjpa", "logdata"},
+	entry({"admin", "services", "rjpa", "logdata"},
 		call("action_logdata")).leaf = true
 
-	entry({"admin", "network", "rjpa", "logclear"},
+	entry({"admin", "services", "rjpa", "logclear"},
 		call("action_logclear")).leaf = true
 
-	entry({"admin", "network", "rjpa", "svcstart"},
+	entry({"admin", "services", "rjpa", "svcstart"},
 		call("action_svcstart")).leaf = true
 
-	entry({"admin", "network", "rjpa", "svcdata"},
+	entry({"admin", "services", "rjpa", "svcdata"},
 		call("action_svcdata")).leaf = true
 end
 

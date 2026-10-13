@@ -113,7 +113,7 @@ apk add --allow-untrusted ./rjpa-1.0.1-r1.aarch64_cortex-a53.apk ./luci-rjpa-1.0
 /etc/init.d/uhttpd restart
 ```
 
-装完刷新浏览器，左侧菜单 **网络 → 锐捷认证**。
+装完刷新浏览器，左侧菜单 **服务 → RJPA锐捷认证**。
 
 ---
 
@@ -181,7 +181,7 @@ rjpa -h                             # 帮助
 
 ## 常见问题
 
-**Q：菜单里找不到「锐捷认证」？**
+**Q：菜单里找不到「RJPA锐捷认证」？**
 
 九成是 `luci-compat` 没装上。24.10 / 25.12 的默认镜像用的是 JS 版 LuCI，
 **不带 Lua 兼容层**，而本项目的界面是 Lua 写的，没有它就加载不出来。
