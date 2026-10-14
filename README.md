@@ -204,7 +204,7 @@ rm -f /tmp/luci-indexcache*
 
 **Q：路由器连不上外网，`luci-compat` 装不了怎么办？**
 
-这是个先有鸡还是先有蛋的问题——认证客户端本身还没跑起来。
+路由器未认证前可能还没有网络
 可以在电脑上把依赖包下下来，和本软件一起 scp 过去手动装。详细做法和需要的包清单见
 [openwrt/README.md](openwrt/README.md) 的第 6 节。
 
@@ -238,13 +238,14 @@ cat /var/log/rjpa.log          # 文件里有东西吗
 ## 自己编译
 
 本项目用 Go 写认证逻辑、用 Lua 写 LuCI 界面，编译需要 OpenWrt SDK。
+你可以fork该项目然后自行进行Github在线编译
 
 **完整编译步骤、SDK 下载地址、各架构对照表、排错方法，全部在
 [openwrt/README.md](openwrt/README.md)。**
 
 ---
 
-## 技术说明（给想改代码的人）
+## 技术说明
 
 ```
 main.go              认证逻辑（Go，纯标准库、无 cgo、静态链接）
